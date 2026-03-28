@@ -50,7 +50,28 @@ describe("SQLite repositories", () => {
     expect(await favoritesRepository.list("user-1")).toHaveLength(1);
     expect((await playlistsRepository.getByName("user-1", "study"))?.tracks).toHaveLength(1);
     expect(await downloadTaskRepository.listByUser("user-1")).toHaveLength(1);
-    expect((await sessionContextRepository.getBySessionId("session-1"))?.currentTrack?.title).toBe("Qing Tian");
+    expect((await sessionContextRepository.getByUserAndSessionId("user-1", "session-1"))?.currentTrack?.title).toBe(
+      "Qing Tian"
+    );
+
+    await sessionContextRepository.save({
+      sessionId: "session-1",
+      userId: "user-2",
+      currentTrack: {
+        ...track,
+        id: "track-2",
+        title: "Dao Xiang"
+      },
+      lastSearchResults: [],
+      updatedAt: new Date().toISOString()
+    });
+
+    expect((await sessionContextRepository.getByUserAndSessionId("user-1", "session-1"))?.currentTrack?.title).toBe(
+      "Qing Tian"
+    );
+    expect((await sessionContextRepository.getByUserAndSessionId("user-2", "session-1"))?.currentTrack?.title).toBe(
+      "Dao Xiang"
+    );
 
     client.close();
     rmSync(dbPath, { force: true });

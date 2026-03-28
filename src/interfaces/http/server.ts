@@ -32,8 +32,10 @@ function readUiFile(fileName: string): string {
 }
 
 function getPanelState() {
-  const { latestSession, latestDownloads } = readStorageSnapshot();
-  const favorites = readFavoriteTracks("panel-user");
+  const initialSnapshot = readStorageSnapshot();
+  const activeUserId = initialSnapshot.latestSession?.userId ?? "panel-user";
+  const { latestSession, latestDownloads } = readStorageSnapshot(activeUserId);
+  const favorites = readFavoriteTracks(activeUserId);
   const latestDownloadTitle = latestDownloads[0]?.trackTitle;
   const isCurrentTrackFavorited = Boolean(
     latestSession?.currentTrack && favorites.some((track) => track.id === latestSession.currentTrack?.id)
@@ -56,7 +58,8 @@ function getPanelState() {
     favorites: favorites.slice(0, 8),
     favoriteCount: favorites.length,
     isCurrentTrackFavorited,
-    provider: getProviderStatus(),
+    provider: getProviderStatus({ musicLibraryDir: agentContainer.profile.runtimeConfig.musicLibraryDir }),
+    activeUserId,
     debug: process.env.MUSIC_SKILL_DEBUG === "1"
   };
 }

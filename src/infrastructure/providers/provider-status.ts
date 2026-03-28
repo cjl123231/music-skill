@@ -22,8 +22,8 @@ function countAudioFiles(root: string): number {
   return count;
 }
 
-export function getProviderStatus() {
-  const musicDir = process.env.MUSIC_LIBRARY_DIR;
+export function getProviderStatus(config?: { musicLibraryDir?: string }) {
+  const musicDir = config?.musicLibraryDir ?? process.env.MUSIC_LIBRARY_DIR;
 
   if (!musicDir) {
     return {

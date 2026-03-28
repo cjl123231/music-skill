@@ -19,6 +19,36 @@ export class SqliteClient {
   }
 
   private migrate(): void {
+    const sessionContextsColumns = this.db
+      .prepare("PRAGMA table_info(session_contexts)")
+      .all() as Array<{ name: string; pk: number }>;
+    const requiresSessionContextMigration =
+      sessionContextsColumns.length > 0 &&
+      !sessionContextsColumns.some((column) => column.name === "user_id" && column.pk > 0);
+
+    if (requiresSessionContextMigration) {
+      this.db.exec(`
+        ALTER TABLE session_contexts RENAME TO session_contexts_legacy;
+
+        CREATE TABLE session_contexts (
+          session_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          current_track_json TEXT,
+          last_search_results_json TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (user_id, session_id)
+        );
+
+        INSERT INTO session_contexts (
+          session_id, user_id, current_track_json, last_search_results_json, updated_at
+        )
+        SELECT session_id, user_id, current_track_json, last_search_results_json, updated_at
+        FROM session_contexts_legacy;
+
+        DROP TABLE session_contexts_legacy;
+      `);
+    }
+
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS favorites (
         user_id TEXT NOT NULL,
@@ -56,11 +86,12 @@ export class SqliteClient {
       );
 
       CREATE TABLE IF NOT EXISTS session_contexts (
-        session_id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         current_track_json TEXT,
         last_search_results_json TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, session_id)
       );
 
       CREATE TABLE IF NOT EXISTS agent_preference_memory (

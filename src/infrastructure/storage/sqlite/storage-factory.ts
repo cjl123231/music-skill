@@ -102,17 +102,22 @@ export function createAgentMemoryRepositories(): AgentMemoryRepositories {
   };
 }
 
-export function readStorageSnapshot(): StorageSnapshot {
+export function readStorageSnapshot(userId?: string): StorageSnapshot {
   const driver = (process.env.MUSIC_STORAGE_DRIVER ?? "sqlite").toLowerCase();
 
   if (driver === "sqlite") {
     const client = createSqliteClient();
-    const latestSessionRow = client.db
-      .prepare(
-        `SELECT session_id, user_id, current_track_json, last_search_results_json, updated_at
-         FROM session_contexts ORDER BY updated_at DESC LIMIT 1`
-      )
-      .get() as
+    const latestSessionStatement =
+      userId
+        ? client.db.prepare(
+            `SELECT session_id, user_id, current_track_json, last_search_results_json, updated_at
+             FROM session_contexts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1`
+          )
+        : client.db.prepare(
+            `SELECT session_id, user_id, current_track_json, last_search_results_json, updated_at
+             FROM session_contexts ORDER BY updated_at DESC LIMIT 1`
+          );
+    const latestSessionRow = (userId ? latestSessionStatement.get(userId) : latestSessionStatement.get()) as
       | {
           session_id: string;
           user_id: string;
@@ -121,12 +126,19 @@ export function readStorageSnapshot(): StorageSnapshot {
           updated_at: string;
         }
       | undefined;
-    const latestDownloadsRows = client.db
-      .prepare(
-        `SELECT id, user_id, track_id, track_title, artist_name, file_path, status, created_at
-         FROM download_tasks ORDER BY created_at DESC LIMIT 3`
-      )
-      .all() as Array<{
+    const latestDownloadsStatement =
+      userId
+        ? client.db.prepare(
+            `SELECT id, user_id, track_id, track_title, artist_name, file_path, status, created_at
+             FROM download_tasks WHERE user_id = ? ORDER BY created_at DESC LIMIT 3`
+          )
+        : client.db.prepare(
+            `SELECT id, user_id, track_id, track_title, artist_name, file_path, status, created_at
+             FROM download_tasks ORDER BY created_at DESC LIMIT 3`
+          );
+    const latestDownloadsRows = (userId
+      ? latestDownloadsStatement.all(userId)
+      : latestDownloadsStatement.all()) as Array<{
       id: string;
       user_id: string;
       track_id: string;
@@ -163,8 +175,13 @@ export function readStorageSnapshot(): StorageSnapshot {
   const database = createDatabase();
   const state = database.read();
   const latestSession = Object.values(state.sessionContexts)
+    .filter((context) => !userId || context.userId === userId)
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))[0] ?? null;
-  const latestDownloads = Object.values(state.downloadTasks).flat().slice(-3).reverse();
+  const latestDownloads = Object.entries(state.downloadTasks)
+    .filter(([ownerId]) => !userId || ownerId === userId)
+    .flatMap(([, tasks]) => tasks)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, 3);
 
   return {
     latestSession,

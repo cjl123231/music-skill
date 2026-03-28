@@ -6,7 +6,7 @@ export class DialogueManager {
   constructor(private readonly sessionContexts: SessionContextRepository) {}
 
   async getOrCreate(sessionId: string, userId: string): Promise<SessionContext> {
-    const existing = await this.sessionContexts.getBySessionId(sessionId);
+    const existing = await this.sessionContexts.getByUserAndSessionId(userId, sessionId);
     if (existing) {
       return existing;
     }

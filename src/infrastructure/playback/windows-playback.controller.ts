@@ -10,9 +10,19 @@ interface PlayerReply {
   error?: string;
 }
 
+type HostFactory = () => ChildProcessWithoutNullStreams;
+
 export class WindowsPlaybackController implements PlaybackController {
   private host: ChildProcessWithoutNullStreams | null = null;
   private volumePercent = 50;
+  private stdoutBuffer = "";
+  private inFlight = Promise.resolve();
+
+  constructor(private readonly createHost: HostFactory = () =>
+    spawn("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/player-host.ps1"], {
+      cwd: process.cwd(),
+      stdio: ["pipe", "pipe", "pipe"]
+    })) {}
 
   async play(track: Track): Promise<void> {
     if (!track.filePath) {
@@ -48,57 +58,79 @@ export class WindowsPlaybackController implements PlaybackController {
       return this.host;
     }
 
-    this.host = spawn(
-      "powershell",
-      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/player-host.ps1"],
-      {
-        cwd: process.cwd(),
-        stdio: ["pipe", "pipe", "pipe"]
-      }
-    );
+    this.host = this.createHost();
 
     this.host.unref();
+    this.host.stdout.setEncoding("utf8");
 
     return this.host;
   }
 
   private send(command: Record<string, unknown>): Promise<void> {
+    const operation = this.inFlight.then(() => this.sendSerialized(command));
+    this.inFlight = operation.catch(() => undefined);
+    return operation;
+  }
+
+  private sendSerialized(command: Record<string, unknown>): Promise<void> {
     const host = this.ensureHost();
 
     return new Promise((resolve, reject) => {
-      const handleStdout = (chunk: Buffer) => {
-        const line = chunk.toString("utf8").trim();
-        if (!line) {
-          return;
-        }
+      const handleStdout = (chunk: string | Buffer) => {
+        this.stdoutBuffer += typeof chunk === "string" ? chunk : chunk.toString("utf8");
 
-        cleanup();
-
-        try {
-          const parsed = JSON.parse(line) as PlayerReply;
-          if (parsed.ok) {
-            resolve();
+        while (true) {
+          const newlineIndex = this.stdoutBuffer.indexOf("\n");
+          if (newlineIndex === -1) {
             return;
           }
 
-          reject(new AppError(parsed.error ?? "Playback host failed.", ErrorCodes.InvalidInput));
-        } catch (error) {
-          reject(error);
+          const line = this.stdoutBuffer.slice(0, newlineIndex).trim();
+          this.stdoutBuffer = this.stdoutBuffer.slice(newlineIndex + 1);
+
+          if (!line) {
+            continue;
+          }
+
+          cleanup();
+
+          try {
+            const parsed = JSON.parse(line) as PlayerReply;
+            if (parsed.ok) {
+              resolve();
+              return;
+            }
+
+            reject(new AppError(parsed.error ?? "Playback host failed.", ErrorCodes.InvalidInput));
+            return;
+          } catch (error) {
+            reject(error);
+            return;
+          }
         }
       };
 
-      const handleStderr = (chunk: Buffer) => {
+      const handleStderr = (chunk: Buffer | string) => {
         cleanup();
-        reject(new AppError(chunk.toString("utf8"), ErrorCodes.InvalidInput));
+        const stderr = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+        reject(new AppError(stderr.trim() || "Playback host failed.", ErrorCodes.InvalidInput));
+      };
+
+      const handleExit = () => {
+        cleanup();
+        this.host = null;
+        reject(new AppError("Playback host exited unexpectedly.", ErrorCodes.InvalidInput));
       };
 
       const cleanup = () => {
         host.stdout.off("data", handleStdout);
         host.stderr.off("data", handleStderr);
+        host.off("exit", handleExit);
       };
 
       host.stdout.on("data", handleStdout);
       host.stderr.on("data", handleStderr);
+      host.on("exit", handleExit);
       host.stdin.write(`${JSON.stringify(command)}\n`);
     });
   }

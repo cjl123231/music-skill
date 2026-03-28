@@ -21,6 +21,23 @@ function resolveSourceAudioPath(track: Track): string | null {
   return null;
 }
 
+function buildUniqueFilePath(directory: string, baseName: string, extension: string): string {
+  const normalizedExtension = extension || ".mp3";
+  const initialPath = resolve(directory, `${baseName}${normalizedExtension}`);
+  if (!existsSync(initialPath)) {
+    return initialPath;
+  }
+
+  let index = 2;
+  while (true) {
+    const candidatePath = resolve(directory, `${baseName} (${index})${normalizedExtension}`);
+    if (!existsSync(candidatePath)) {
+      return candidatePath;
+    }
+    index += 1;
+  }
+}
+
 export class FileDownloader implements Downloader {
   constructor(private readonly downloadDir = process.env.MUSIC_DOWNLOAD_DIR ?? "./downloads") {}
 
@@ -31,8 +48,8 @@ export class FileDownloader implements Downloader {
     const safeTitle = sanitizeSegment(input.track.title);
     const sourceAudioPath = resolveSourceAudioPath(input.track);
     const sourceExtension = sourceAudioPath ? extname(sourceAudioPath) || ".mp3" : ".txt";
-    const fileName = `${safeArtist} - ${safeTitle}${sourceExtension}`;
-    const filePath = resolve(this.downloadDir, fileName);
+    const fileBaseName = `${safeArtist} - ${safeTitle}`;
+    const filePath = buildUniqueFilePath(this.downloadDir, fileBaseName, sourceExtension);
 
     if (sourceAudioPath) {
       copyFileSync(sourceAudioPath, filePath);

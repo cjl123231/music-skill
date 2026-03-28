@@ -20,7 +20,7 @@ export class ContextManager {
   constructor(private readonly sessionContextRepository: SessionContextRepository) {}
 
   async load(userId: string, sessionId: string, preferenceRecords: PreferenceRecord[]): Promise<AgentContext> {
-    const session = await this.sessionContextRepository.getBySessionId(sessionId);
+    const session = await this.sessionContextRepository.getByUserAndSessionId(userId, sessionId);
 
     return {
       userId,

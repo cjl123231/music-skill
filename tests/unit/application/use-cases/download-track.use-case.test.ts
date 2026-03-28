@@ -87,4 +87,47 @@ describe("DownloadTrackUseCase", () => {
     rmSync(dbPath, { force: true });
     rmSync(downloadDir, { recursive: true, force: true });
   });
+
+  it("keeps both files when downloading the same song twice", async () => {
+    const dbPath = "./data/test-downloads-db-repeat.json";
+    const downloadDir = "./downloads/test-downloads-repeat";
+    const sourceFile = "./data/test-source-repeat.mp3";
+    rmSync(dbPath, { force: true });
+    rmSync(downloadDir, { recursive: true, force: true });
+    rmSync(sourceFile, { force: true });
+    writeFileSync(sourceFile, "fake-audio-content-repeat", "utf8");
+
+    const useCase = new DownloadTrackUseCase(
+      new FileDownloader(downloadDir),
+      new JsonDownloadTaskRepository(createDatabase(dbPath)),
+      new CurrentTrackResolver(new StubMusicProvider())
+    );
+
+    const context = {
+      sessionId: "s1",
+      userId: "u1",
+      currentTrack: {
+        id: "track_local_repeat",
+        title: "录音",
+        artist: "Unknown Artist",
+        filePath: sourceFile,
+        source: "local" as const,
+        playable: true,
+        downloadable: true
+      },
+      lastSearchResults: [],
+      updatedAt: new Date().toISOString()
+    };
+
+    const firstTask = await useCase.execute({ userId: "u1", context });
+    const secondTask = await useCase.execute({ userId: "u1", context });
+
+    expect(firstTask.filePath).not.toBe(secondTask.filePath);
+    expect(existsSync(firstTask.filePath)).toBe(true);
+    expect(existsSync(secondTask.filePath)).toBe(true);
+
+    rmSync(dbPath, { force: true });
+    rmSync(downloadDir, { recursive: true, force: true });
+    rmSync(sourceFile, { force: true });
+  });
 });

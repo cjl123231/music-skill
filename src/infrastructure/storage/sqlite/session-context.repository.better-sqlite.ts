@@ -5,13 +5,13 @@ import type { SqliteClient } from "./sqlite-client.js";
 export class BetterSqliteSessionContextRepository implements SessionContextRepository {
   constructor(private readonly client: SqliteClient) {}
 
-  async getBySessionId(sessionId: string): Promise<SessionContext | null> {
+  async getByUserAndSessionId(userId: string, sessionId: string): Promise<SessionContext | null> {
     const row = this.client.db
       .prepare(
         `SELECT session_id, user_id, current_track_json, last_search_results_json, updated_at
-         FROM session_contexts WHERE session_id = ?`
+         FROM session_contexts WHERE user_id = ? AND session_id = ?`
       )
-      .get(sessionId) as
+      .get(userId, sessionId) as
       | {
           session_id: string;
           user_id: string;
@@ -40,8 +40,7 @@ export class BetterSqliteSessionContextRepository implements SessionContextRepos
         `INSERT INTO session_contexts (
           session_id, user_id, current_track_json, last_search_results_json, updated_at
         ) VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(session_id) DO UPDATE SET
-          user_id = excluded.user_id,
+        ON CONFLICT(user_id, session_id) DO UPDATE SET
           current_track_json = excluded.current_track_json,
           last_search_results_json = excluded.last_search_results_json,
           updated_at = excluded.updated_at`
