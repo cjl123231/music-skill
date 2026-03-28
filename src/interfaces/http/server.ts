@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createAgentContainer } from "../../app/agent-container.js";
 import { agentRequestSchema } from "../../agent/core/agent-dto.js";
+import { readLocalLyrics } from "../../infrastructure/lyrics/local-lyrics.js";
 import { getProviderStatus } from "../../infrastructure/providers/provider-status.js";
 import { readFavoriteTracks, readStorageSnapshot } from "../../infrastructure/storage/sqlite/storage-factory.js";
 import { skillRequestSchema } from "../openclaw/dto.js";
@@ -37,11 +38,15 @@ async function getPanelState() {
   const { latestSession, latestDownloads } = readStorageSnapshot(activeUserId);
   const favorites = readFavoriteTracks(activeUserId);
   const playback = await agentContainer.provider.getNowPlaying();
+  const currentTrack = playback.track ?? latestSession?.currentTrack ?? null;
   const libraryTracks = (await agentContainer.provider.listTracks()).slice(0, 20);
   const latestDownloadTitle = latestDownloads[0]?.trackTitle;
   const isCurrentTrackFavorited = Boolean(
-    latestSession?.currentTrack && favorites.some((track) => track.id === latestSession.currentTrack?.id)
+    currentTrack && favorites.some((track) => track.id === currentTrack.id)
   );
+  const lyrics = readLocalLyrics(currentTrack?.filePath);
+  const playbackStatusLabel =
+    playback.status === "playing" ? "播放中" : playback.status === "paused" ? "已暂停" : "空闲";
 
   return {
     agent: {
@@ -53,8 +58,8 @@ async function getPanelState() {
       wakeWord: agentContainer.profile.identity.wakeWord,
       templateId: agentContainer.profile.identity.templateId
     },
-    currentTrack: latestSession?.currentTrack ?? null,
-    playbackStatusLabel: latestSession?.currentTrack ? "播放中" : "空闲",
+    currentTrack,
+    playbackStatusLabel,
     volumePercent: playback.volumePercent,
     feedbackText: latestDownloadTitle ? `最近下载完成：《${latestDownloadTitle}》` : "等待操作",
     downloads: latestDownloads,
@@ -62,6 +67,7 @@ async function getPanelState() {
     favorites: favorites.slice(0, 8),
     favoriteCount: favorites.length,
     isCurrentTrackFavorited,
+    lyrics,
     provider: getProviderStatus({ musicLibraryDir: agentContainer.profile.runtimeConfig.musicLibraryDir }),
     activeUserId,
     debug: process.env.MUSIC_SKILL_DEBUG === "1"

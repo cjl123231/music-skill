@@ -15,6 +15,13 @@ let shouldContinueListening = false;
 let restartTimer = null;
 let activeSection = "library";
 
+let playbackClock = {
+  trackId: null,
+  startedAt: 0,
+  elapsedMs: 0,
+  status: "idle"
+};
+
 function formatDuration(durationMs) {
   if (!durationMs) return "--:--";
   const totalSeconds = Math.floor(durationMs / 1000);
@@ -60,7 +67,7 @@ function createFavoriteItem(track) {
     </div>
   `;
   button.addEventListener("click", async () => {
-    await handleCommand(`播放我收藏的${track.title}`);
+    await handleCommand(`play ${track.title}`);
   });
   return button;
 }
@@ -80,7 +87,7 @@ function createLibraryItem(track, currentTrackId) {
     </div>
   `;
   button.addEventListener("click", async () => {
-    await handleCommand(`播放${track.title}`);
+    await handleCommand(`play ${track.title}`);
   });
   return button;
 }
@@ -195,32 +202,133 @@ function renderDownloads(state) {
   state.downloads.forEach((task) => downloadList.appendChild(createDownloadItem(task)));
 }
 
+function syncPlaybackClock(state) {
+  const trackId = state.currentTrack?.id ?? null;
+  const status = state.currentTrack ? state.playbackStatusLabel : "空闲";
+  const now = Date.now();
+
+  if (!trackId) {
+    playbackClock = { trackId: null, startedAt: 0, elapsedMs: 0, status: "idle" };
+    return;
+  }
+
+  if (playbackClock.trackId !== trackId) {
+    playbackClock = {
+      trackId,
+      startedAt: status === "播放中" ? now : 0,
+      elapsedMs: 0,
+      status
+    };
+    return;
+  }
+
+  if (playbackClock.status !== status) {
+    if (status === "播放中") {
+      playbackClock.startedAt = now;
+    } else if (playbackClock.status === "播放中") {
+      playbackClock.elapsedMs += Math.max(0, now - playbackClock.startedAt);
+      playbackClock.startedAt = 0;
+    }
+    playbackClock.status = status;
+  }
+}
+
+function getEstimatedElapsedMs(state) {
+  if (!state.currentTrack) return 0;
+  const now = Date.now();
+  if (playbackClock.status === "播放中" && playbackClock.startedAt) {
+    return playbackClock.elapsedMs + Math.max(0, now - playbackClock.startedAt);
+  }
+  return playbackClock.elapsedMs;
+}
+
 function renderPlayer(state) {
+  syncPlaybackClock(state);
+  const elapsedMs = getEstimatedElapsedMs(state);
+  const durationMs = state.currentTrack?.durationMs ?? 0;
+  const progressPercent = durationMs ? Math.min(100, (elapsedMs / durationMs) * 100) : 0;
+
   document.getElementById("track-title").textContent = state.currentTrack?.title ?? "当前没有播放内容";
   document.getElementById("track-artist").textContent = state.currentTrack?.artist ?? "等待音乐指令";
   document.getElementById("track-album").textContent = state.currentTrack?.album
     ? `专辑：${state.currentTrack.album}`
     : "专辑信息待更新";
   document.getElementById("playback-status").textContent = state.playbackStatusLabel;
-  document.getElementById("playback-duration").textContent = formatDuration(state.currentTrack?.durationMs);
+  document.getElementById("playback-duration").textContent = formatDuration(durationMs);
   document.getElementById("volume-value").textContent = `${state.volumePercent ?? 50}%`;
-  document.getElementById("playback-progress").style.width = state.currentTrack ? "38%" : "0%";
+  document.getElementById("playback-progress").style.width = `${progressPercent}%`;
   document.getElementById("volume-progress").style.width = `${state.volumePercent ?? 50}%`;
 
   document.getElementById("mini-track-title").textContent = state.currentTrack?.title ?? "未播放";
   document.getElementById("mini-track-artist").textContent = state.currentTrack?.artist ?? "等待指令";
 
+  document.querySelectorAll("[data-requires-track='true']").forEach((button) => {
+    button.disabled = !state.currentTrack;
+  });
+
   const toggleButton = document.getElementById("toggle-playback");
   if (state.playbackStatusLabel === "播放中") {
-    toggleButton.textContent = "暂停";
-    toggleButton.setAttribute("data-command", "暂停");
+    toggleButton.innerHTML = '<span aria-hidden="true">&#10074;&#10074;</span>';
+    toggleButton.setAttribute("data-command", "pause");
+    toggleButton.setAttribute("title", "暂停");
+    toggleButton.setAttribute("aria-label", "暂停");
   } else if (state.currentTrack) {
-    toggleButton.textContent = "继续播放";
-    toggleButton.setAttribute("data-command", "继续播放");
+    toggleButton.innerHTML = '<span aria-hidden="true">&#9654;</span>';
+    toggleButton.setAttribute("data-command", "continue");
+    toggleButton.setAttribute("title", "继续播放");
+    toggleButton.setAttribute("aria-label", "继续播放");
   } else {
-    toggleButton.textContent = "暂停";
-    toggleButton.setAttribute("data-command", "暂停");
+    toggleButton.innerHTML = '<span aria-hidden="true">&#10074;&#10074;</span>';
+    toggleButton.setAttribute("data-command", "pause");
+    toggleButton.setAttribute("title", "暂停");
+    toggleButton.setAttribute("aria-label", "暂停");
   }
+}
+
+function renderLyrics(state) {
+  const lyricsBody = document.getElementById("lyrics-body");
+  const lyricsMeta = document.getElementById("lyrics-meta");
+  lyricsBody.innerHTML = "";
+
+  if (!state.currentTrack) {
+    lyricsMeta.textContent = "未播放";
+    const line = document.createElement("p");
+    line.className = "lyric-line active";
+    line.textContent = "先播放一首歌，再查看歌词。";
+    lyricsBody.appendChild(line);
+    return;
+  }
+
+  if (!state.lyrics?.found || !state.lyrics.lines?.length) {
+    lyricsMeta.textContent = "未找到";
+    const line = document.createElement("p");
+    line.className = "lyric-line active";
+    line.textContent = "当前歌曲没有匹配到本地歌词文件。";
+    lyricsBody.appendChild(line);
+
+    const hint = document.createElement("p");
+    hint.className = "lyric-line";
+    hint.textContent = "把同名 .lrc 或 .txt 放在音频文件旁边即可显示。";
+    lyricsBody.appendChild(hint);
+    return;
+  }
+
+  lyricsMeta.textContent = state.lyrics.format ? state.lyrics.format.toUpperCase() : "歌词";
+
+  const elapsedMs = getEstimatedElapsedMs(state);
+  let activeIndex = -1;
+  state.lyrics.lines.forEach((line, index) => {
+    if (typeof line.timestampMs === "number" && line.timestampMs <= elapsedMs) {
+      activeIndex = index;
+    }
+  });
+
+  state.lyrics.lines.slice(0, 120).forEach((line, index) => {
+    const row = document.createElement("p");
+    row.className = `lyric-line${index === activeIndex ? " active is-current" : ""}`;
+    row.textContent = line.text;
+    lyricsBody.appendChild(row);
+  });
 }
 
 function renderDebug(state) {
@@ -240,6 +348,7 @@ async function refreshPanel() {
   renderFavorites(state);
   renderLibraryTracks(state);
   renderDownloads(state);
+  renderLyrics(state);
   renderDebug(state);
 
   if (!isHandlingVoiceCommand) {
@@ -286,7 +395,7 @@ function scheduleRestart() {
     try {
       recognition.start();
     } catch {
-      setVoiceStatus("语音重新启动失败，可点击重试", false, true);
+      setVoiceStatus("语音重新启动失败，可以点击重试", false, true);
     }
   }, 800);
 }
@@ -434,4 +543,4 @@ document.querySelectorAll("[data-section-target]").forEach((button) => {
 refreshPanel();
 setActiveSection(activeSection);
 setupVoiceRecognition();
-setInterval(refreshPanel, 3000);
+setInterval(refreshPanel, 1000);

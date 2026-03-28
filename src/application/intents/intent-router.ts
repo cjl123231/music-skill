@@ -2,12 +2,12 @@ import { IntentTypes, type IntentType } from "./intent-types.js";
 
 const orderedRules: Array<{ pattern: RegExp; intent: IntentType }> = [
   {
-    pattern: /^(播放(我收藏|我的收藏(的.*)?)|play my favorites?|play what i like)/i,
+    pattern: /^(播放(我收藏|我的收藏)(的?)?|play my favorites?|play what i like)/i,
     intent: IntentTypes.Play
   },
   {
     pattern:
-      /^(来点适合写代码的|来点写代码听的|写代码的时候听什么|来点适合编程的|来点适合工作的|来点工作听的|来点适合学习的|来点学习听的|来点适合阅读的|来点运动的|来点运动听的|来点适合跑步的|来点适合健身的|来点安静的|放点安静的|想听安静一点的|来点轻一点的|来点放松的|来点适合放松的|来点适合睡前听的|来点适合开车听的|来点适合通勤的|来点适合冥想的|来点欢快的|来点燃的|play something for coding|play music for work|play something chill|play something for exercise|play workout music|play something relaxing|play study music|play something upbeat)/i,
+      /^(来点适合写代码的|来点写代码听的|来点适合编程的|来点适合工作的|来点适合学习的|来点学习听的|来点适合阅读的|来点运动的|来点适合跑步的|来点适合健身的|来点安静的|放点安静的|来点轻一点的|来点放松的|来点适合放松的|来点适合睡前听的|来点适合通勤的|来点适合冥想的|来点欢快的|来点燃的|play something for coding|play music for work|play something chill|play workout music|play something relaxing|play study music|play something upbeat)/i,
     intent: IntentTypes.RecommendScene
   },
   {
@@ -37,7 +37,7 @@ const orderedRules: Array<{ pattern: RegExp; intent: IntentType }> = [
     intent: IntentTypes.PlaylistAddTrack
   },
   {
-    pattern: /^(下载这首歌|下载当前歌曲|把这首歌下载下来|下载一个|保存这首歌|download this song|download current)/i,
+    pattern: /^(下载这首歌|下载当前歌曲|把这首歌下载下来|保存这首歌|下载一个|download this song|download current)/i,
     intent: IntentTypes.DownloadTrack
   },
   {
@@ -49,12 +49,12 @@ const orderedRules: Array<{ pattern: RegExp; intent: IntentType }> = [
     intent: IntentTypes.DownloadList
   },
   {
-    pattern: /^(收藏这首歌|收藏这首|加到我喜欢|标记收藏|喜欢这首|收藏一个|我喜欢这首|favorite this|save this song|like this)/i,
+    pattern: /^(收藏这首歌|收藏这首|收藏一个|加到我喜欢|标记收藏|喜欢这首|我喜欢这首|favorite this|save this song|like this)/i,
     intent: IntentTypes.FavoriteAdd
   },
   {
     pattern:
-      /^(音量调到|调到|把音量调到|音量设为|声音大小|调大声|调小声|音量加|音量减|音量增加|音量减少|音量高一点|音量低一点|音量大一点|音量小一点|大声一点|小声一点|高一点|低一点|大一点|小一点|再大一点|再小一点|减少一点|增加一点|再减少一点|再增加一点|太大声了|太吵了|声音太大了|声音别这么大|轻一点|再轻一点|别这么大声|再响一点|响一点|volume|set volume to|turn up|turn down|louder|quieter|volume down|volume up|lower the volume|raise the volume)\s*\d*%?/i,
+      /^(音量调到|调到|把音量调到|音量设为|声音大小|调大声|调小声|音量加|音量减|音量增加|音量减少|音量高一点|音量低一点|音量大一点|音量小一点|大声一点|小声一点|高一点|低一点|大一点|小一点|再大一点|再小一点|减少一点|增加一点|再减少一点|再增加一点|太大声了|太吵了|声音太大了|声音别这么大|轻一点|再轻一点|别这么大声|volume|set volume to|turn up|turn down|louder|quieter|volume down|volume up|lower the volume|raise the volume)\s*\d*%?/i,
     intent: IntentTypes.VolumeSet
   },
   {

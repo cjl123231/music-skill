@@ -27,7 +27,6 @@
           <button type="button" class="nav-item" data-section-target="library">曲库</button>
           <button type="button" class="nav-item" data-section-target="favorites">收藏</button>
           <button type="button" class="nav-item" data-section-target="downloads">下载</button>
-          <button type="button" class="nav-item" data-section-target="lyrics">歌词</button>
         </nav>
 
         <div class="sidebar-footer">
@@ -64,7 +63,8 @@
 
         <main class="content-scroll">
           <section class="hero card">
-            <div class="hero-art" id="cover-art">♫</div>
+            <div class="hero-art" id="cover-art">♪</div>
+
             <div class="hero-copy">
               <p class="section-label">当前播放</p>
               <h2 id="track-title">当前没有播放内容</h2>
@@ -72,11 +72,39 @@
               <p class="track-sub" id="track-album">专辑信息待更新</p>
 
               <div class="hero-controls">
-                <button type="button" data-command="上一首">上一首</button>
-                <button type="button" class="primary" data-command="暂停" id="toggle-playback">暂停</button>
-                <button type="button" data-command="下一首">下一首</button>
-                <button type="button" data-command="收藏这首歌" id="favorite-button">收藏</button>
-                <button type="button" data-command="下载这首歌">下载</button>
+                <button
+                  type="button"
+                  class="icon-button playback-action"
+                  data-command="previous"
+                  data-requires-track="true"
+                  title="上一首"
+                  aria-label="上一首"
+                >
+                  <span aria-hidden="true">&#9664;&#9664;</span>
+                </button>
+                <button
+                  type="button"
+                  class="primary icon-button playback-action"
+                  data-command="pause"
+                  data-requires-track="true"
+                  id="toggle-playback"
+                  title="暂停"
+                  aria-label="暂停"
+                >
+                  <span aria-hidden="true">&#10074;&#10074;</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-button playback-action"
+                  data-command="next"
+                  data-requires-track="true"
+                  title="下一首"
+                  aria-label="下一首"
+                >
+                  <span aria-hidden="true">&#9654;&#9654;</span>
+                </button>
+                <button type="button" data-command="favorite this" data-requires-track="true" id="favorite-button">收藏</button>
+                <button type="button" data-command="download this song" data-requires-track="true">下载</button>
               </div>
 
               <div class="meter-block">
@@ -98,11 +126,21 @@
                   <div class="progress-fill" id="volume-progress"></div>
                 </div>
                 <div class="volume-controls">
-                  <button type="button" data-command="音量减少10%">-10%</button>
-                  <button type="button" data-command="音量增加10%">+10%</button>
+                  <button type="button" data-command="volume down 10%">-10%</button>
+                  <button type="button" data-command="volume up 10%">+10%</button>
                 </div>
               </div>
             </div>
+
+            <aside class="hero-lyrics card">
+              <div class="card-head">
+                <h3>歌词</h3>
+                <span class="muted" id="lyrics-meta">未播放</span>
+              </div>
+              <div class="lyrics-body hero-lyrics-body" id="lyrics-body">
+                <p class="lyric-line active">先播放一首歌，再查看歌词。</p>
+              </div>
+            </aside>
           </section>
 
           <div class="module-stack">
@@ -128,18 +166,6 @@
                 <span class="muted" id="download-count">0 项</span>
               </div>
               <div class="download-list" id="download-list"></div>
-            </section>
-
-            <section class="card section-card module-panel" id="section-lyrics" data-section-panel="lyrics">
-              <div class="card-head">
-                <h3>歌词</h3>
-                <span class="muted">MVP</span>
-              </div>
-              <div class="lyrics-body" id="lyrics-body">
-                <p class="lyric-line active">当前歌曲暂无歌词</p>
-                <p class="lyric-line">后续可以接入 LRC 或在线歌词源</p>
-                <p class="lyric-line">这里会高亮当前行并跟随播放进度滚动</p>
-              </div>
             </section>
           </div>
 

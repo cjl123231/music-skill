@@ -22,6 +22,7 @@ describe("Music HTTP server", () => {
     mkdirSync(generatedAgentConfigDir, { recursive: true });
     mkdirSync(libraryDir, { recursive: true });
     writeFileSync(join(libraryDir, "录音.mp3"), "fake-audio", "utf8");
+    writeFileSync(join(libraryDir, "录音.lrc"), ["[00:01.00]第一句歌词", "[00:05.00]第二句歌词"].join("\n"), "utf8");
     writeFileSync(
       join(generatedAgentDir, "agent.json"),
       JSON.stringify({
@@ -180,6 +181,31 @@ describe("Music HTTP server", () => {
     if (body.agent.templateId) {
       expect(body.agent.templateId.length).toBeGreaterThan(0);
     }
+  });
+
+  it("returns local lyrics in panel state when a matching lyric file exists", async () => {
+    await fetch(`${baseUrl}/agent/music/handle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: "lyrics-user",
+        sessionId: "lyrics-session",
+        inputType: "text",
+        text: "播放录音",
+        source: "panel"
+      })
+    });
+
+    const response = await fetch(`${baseUrl}/api/panel/state`);
+    expect(response.status).toBe(200);
+
+    const body = (await response.json()) as {
+      lyrics: { found: boolean; format?: string; lines: Array<{ text: string }> };
+    };
+
+    expect(body.lyrics.found).toBe(true);
+    expect(body.lyrics.format).toBe("lrc");
+    expect(body.lyrics.lines[0]?.text).toBe("第一句歌词");
   });
 
   it("returns 400 for invalid requests", async () => {
