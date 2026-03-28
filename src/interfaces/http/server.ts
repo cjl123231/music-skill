@@ -31,11 +31,13 @@ function readUiFile(fileName: string): string {
   return readFileSync(resolve("ui", fileName), "utf8");
 }
 
-function getPanelState() {
+async function getPanelState() {
   const initialSnapshot = readStorageSnapshot();
   const activeUserId = initialSnapshot.latestSession?.userId ?? "panel-user";
   const { latestSession, latestDownloads } = readStorageSnapshot(activeUserId);
   const favorites = readFavoriteTracks(activeUserId);
+  const playback = await agentContainer.provider.getNowPlaying();
+  const libraryTracks = (await agentContainer.provider.listTracks()).slice(0, 20);
   const latestDownloadTitle = latestDownloads[0]?.trackTitle;
   const isCurrentTrackFavorited = Boolean(
     latestSession?.currentTrack && favorites.some((track) => track.id === latestSession.currentTrack?.id)
@@ -53,8 +55,10 @@ function getPanelState() {
     },
     currentTrack: latestSession?.currentTrack ?? null,
     playbackStatusLabel: latestSession?.currentTrack ? "播放中" : "空闲",
+    volumePercent: playback.volumePercent,
     feedbackText: latestDownloadTitle ? `最近下载完成：《${latestDownloadTitle}》` : "等待操作",
     downloads: latestDownloads,
+    libraryTracks,
     favorites: favorites.slice(0, 8),
     favoriteCount: favorites.length,
     isCurrentTrackFavorited,
@@ -90,7 +94,18 @@ export function createHttpServer() {
     }
 
     if (req.method === "GET" && req.url === "/api/panel/state") {
-      sendJson(res, 200, getPanelState());
+      void (async () => {
+        try {
+          sendJson(res, 200, await getPanelState());
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown error.";
+          sendJson(res, 500, {
+            status: "error",
+            action: "panel.state_failed",
+            replyText: message
+          });
+        }
+      })();
       return;
     }
 

@@ -3,10 +3,6 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $port = if ($env:PORT) { $env:PORT } else { "3310" }
 
-if (-not $env:MUSIC_LIBRARY_DIR) {
-  $env:MUSIC_LIBRARY_DIR = $projectRoot
-}
-
 if (-not $env:MUSIC_STORAGE_DRIVER) {
   $env:MUSIC_STORAGE_DRIVER = "sqlite"
 }
@@ -25,7 +21,6 @@ if (-not $env:MUSIC_AGENT_TTS_MODE) {
 
 Write-Host "Starting Music Skill panel and voice listener..."
 Write-Host "PORT=$port"
-Write-Host "MUSIC_LIBRARY_DIR=$($env:MUSIC_LIBRARY_DIR)"
 Write-Host "MUSIC_STORAGE_DRIVER=$($env:MUSIC_STORAGE_DRIVER)"
 Write-Host "MUSIC_DB_PATH=$($env:MUSIC_DB_PATH)"
 Write-Host "MUSIC_AGENT_TTS_ENABLED=$($env:MUSIC_AGENT_TTS_ENABLED)"
@@ -34,7 +29,6 @@ Write-Host ""
 
 $panelCommand = @"
 $env:PORT = '$port'
-$env:MUSIC_LIBRARY_DIR = '$($env:MUSIC_LIBRARY_DIR)'
 $env:MUSIC_STORAGE_DRIVER = '$($env:MUSIC_STORAGE_DRIVER)'
 $env:MUSIC_DB_PATH = '$($env:MUSIC_DB_PATH)'
 Set-Location '$projectRoot'
@@ -43,7 +37,6 @@ pnpm start:panel
 
 $voiceCommand = @"
 $env:PORT = '$port'
-$env:MUSIC_LIBRARY_DIR = '$($env:MUSIC_LIBRARY_DIR)'
 $env:MUSIC_STORAGE_DRIVER = '$($env:MUSIC_STORAGE_DRIVER)'
 $env:MUSIC_DB_PATH = '$($env:MUSIC_DB_PATH)'
 $env:MUSIC_AGENT_TTS_ENABLED = '$($env:MUSIC_AGENT_TTS_ENABLED)'

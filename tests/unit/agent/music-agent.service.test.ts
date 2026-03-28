@@ -7,11 +7,13 @@ describe("MusicAgentService", () => {
   beforeEach(() => {
     process.env.MUSIC_STORAGE_DRIVER = "json";
     process.env.MUSIC_DB_PATH = "./data/test-music-agent-service.json";
+    process.env.MUSIC_LIBRARY_DIR = "";
     rmSync(process.env.MUSIC_DB_PATH, { force: true });
   });
 
   afterEach(() => {
     rmSync(process.env.MUSIC_DB_PATH!, { force: true });
+    delete process.env.MUSIC_LIBRARY_DIR;
   });
 
   it("delegates regular music commands to the existing skill handler", async () => {

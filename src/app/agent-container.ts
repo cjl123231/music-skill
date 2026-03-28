@@ -20,6 +20,7 @@ export function createAgentContainer() {
 
   return {
     profile,
+    provider: base.provider,
     musicAgentService: new MusicAgentService({
       musicSkillHandler: base.musicSkillHandler,
       contextManager: new ContextManager(storage.sessionContextRepository),

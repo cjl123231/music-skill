@@ -161,7 +161,13 @@ export class MusicSkillHandler {
         }
 
         case IntentTypes.VolumeSet: {
-          const playback = await this.deps.setVolume.execute(slots.volumePercent);
+          const currentPlayback = await this.deps.nowPlaying.execute();
+          const targetVolume =
+            slots.volumePercent ??
+            (slots.volumeDelta != null
+              ? Math.max(0, Math.min(100, currentPlayback.volumePercent + slots.volumeDelta))
+              : undefined);
+          const playback = await this.deps.setVolume.execute(targetVolume);
           return {
             status: "success",
             intent,

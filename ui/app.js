@@ -13,7 +13,7 @@ let lastFinalTranscript = "";
 let lastFinalAt = 0;
 let shouldContinueListening = false;
 let restartTimer = null;
-let latestReasoning = "";
+let activeSection = "library";
 
 function formatDuration(durationMs) {
   if (!durationMs) return "--:--";
@@ -65,6 +65,26 @@ function createFavoriteItem(track) {
   return button;
 }
 
+function createLibraryItem(track, currentTrackId) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "favorite-item favorite-play-button";
+  if (track.id === currentTrackId) {
+    button.classList.add("is-active");
+  }
+
+  button.innerHTML = `
+    <div class="download-title">
+      <strong>${track.title}</strong>
+      <span class="muted">${track.artist}</span>
+    </div>
+  `;
+  button.addEventListener("click", async () => {
+    await handleCommand(`播放${track.title}`);
+  });
+  return button;
+}
+
 async function sendCommand(text, inputType = "text") {
   const response = await fetch(actionUrl, {
     method: "POST",
@@ -96,15 +116,26 @@ function renderAgentState(agent) {
     agent?.description ?? "查看播放状态、下载任务和收藏列表，并通过文字或语音控制音乐 Agent。";
   document.getElementById("agent-wake-word").textContent = `唤醒词：${wakeWord}`;
   document.getElementById("agent-template").textContent = `人格模板：${templateId}`;
-  document.getElementById("voice-example").textContent = `建议说法：${wakeWord}，播放录音。也可以说：${wakeWord}，来点安静的。`;
 }
 
 function renderResult(replyText) {
   document.getElementById("feedback-text").textContent = replyText;
 }
 
-function renderReasoning(reasoning) {
-  document.getElementById("agent-reasoning").textContent = reasoning || "等待 Agent 推荐理由";
+function setActiveSection(section) {
+  activeSection = section;
+  document.querySelectorAll("[data-section-target]").forEach((element) => {
+    element.classList.toggle("is-active", element.getAttribute("data-section-target") === section);
+  });
+
+  document.querySelectorAll("[data-section-panel]").forEach((element) => {
+    element.classList.toggle("is-visible", element.getAttribute("data-section-panel") === section);
+  });
+
+  const commandSurface = document.querySelector('[data-section-surface="command"]');
+  if (section === "command") {
+    commandSurface?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function renderFavorites(state) {
@@ -129,13 +160,42 @@ function renderFavorites(state) {
   state.favorites.forEach((track) => favoriteList.appendChild(createFavoriteItem(track)));
 }
 
-async function refreshPanel() {
-  const response = await fetch(stateUrl);
-  const state = await response.json();
+function renderLibraryTracks(state) {
+  const libraryCount = document.getElementById("library-count");
+  const libraryList = document.getElementById("library-list");
+  const currentTrackId = state.currentTrack?.id ?? null;
 
-  renderAgentState(state.agent);
-  renderReasoning(latestReasoning);
+  libraryCount.textContent = `${state.libraryTracks?.length ?? 0} 首`;
+  libraryList.innerHTML = "";
 
+  if (!state.libraryTracks?.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "当前曲库里还没有可播放的歌曲";
+    libraryList.appendChild(empty);
+    return;
+  }
+
+  state.libraryTracks.forEach((track) => libraryList.appendChild(createLibraryItem(track, currentTrackId)));
+}
+
+function renderDownloads(state) {
+  document.getElementById("download-count").textContent = `${state.downloads.length} 项`;
+  const downloadList = document.getElementById("download-list");
+  downloadList.innerHTML = "";
+
+  if (!state.downloads.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "当前没有下载任务";
+    downloadList.appendChild(empty);
+    return;
+  }
+
+  state.downloads.forEach((task) => downloadList.appendChild(createDownloadItem(task)));
+}
+
+function renderPlayer(state) {
   document.getElementById("track-title").textContent = state.currentTrack?.title ?? "当前没有播放内容";
   document.getElementById("track-artist").textContent = state.currentTrack?.artist ?? "等待音乐指令";
   document.getElementById("track-album").textContent = state.currentTrack?.album
@@ -143,17 +203,12 @@ async function refreshPanel() {
     : "专辑信息待更新";
   document.getElementById("playback-status").textContent = state.playbackStatusLabel;
   document.getElementById("playback-duration").textContent = formatDuration(state.currentTrack?.durationMs);
-  document.getElementById("debug-source").textContent = state.currentTrack?.source ?? "-";
-  document.getElementById("debug-track-id").textContent = state.currentTrack?.id ?? "-";
-  document.getElementById("debug-file-path").textContent = state.currentTrack?.filePath ?? "-";
-  document.getElementById("debug-card").hidden = !state.debug;
+  document.getElementById("volume-value").textContent = `${state.volumePercent ?? 50}%`;
+  document.getElementById("playback-progress").style.width = state.currentTrack ? "38%" : "0%";
+  document.getElementById("volume-progress").style.width = `${state.volumePercent ?? 50}%`;
 
-  renderProviderStatus(state.provider);
-  renderFavorites(state);
-
-  if (!isHandlingVoiceCommand) {
-    renderResult(state.feedbackText);
-  }
+  document.getElementById("mini-track-title").textContent = state.currentTrack?.title ?? "未播放";
+  document.getElementById("mini-track-artist").textContent = state.currentTrack?.artist ?? "等待指令";
 
   const toggleButton = document.getElementById("toggle-playback");
   if (state.playbackStatusLabel === "播放中") {
@@ -166,27 +221,35 @@ async function refreshPanel() {
     toggleButton.textContent = "暂停";
     toggleButton.setAttribute("data-command", "暂停");
   }
+}
 
-  document.getElementById("playback-progress").style.width = state.currentTrack ? "38%" : "0%";
-  document.getElementById("download-count").textContent = `${state.downloads.length} 项`;
+function renderDebug(state) {
+  document.getElementById("debug-source").textContent = state.currentTrack?.source ?? "-";
+  document.getElementById("debug-track-id").textContent = state.currentTrack?.id ?? "-";
+  document.getElementById("debug-file-path").textContent = state.currentTrack?.filePath ?? "-";
+  document.getElementById("debug-card").hidden = !state.debug;
+}
 
-  const downloadList = document.getElementById("download-list");
-  downloadList.innerHTML = "";
-  if (!state.downloads.length) {
-    const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent = "当前没有下载任务";
-    downloadList.appendChild(empty);
-  } else {
-    state.downloads.forEach((task) => downloadList.appendChild(createDownloadItem(task)));
+async function refreshPanel() {
+  const response = await fetch(stateUrl);
+  const state = await response.json();
+
+  renderAgentState(state.agent);
+  renderProviderStatus(state.provider);
+  renderPlayer(state);
+  renderFavorites(state);
+  renderLibraryTracks(state);
+  renderDownloads(state);
+  renderDebug(state);
+
+  if (!isHandlingVoiceCommand) {
+    renderResult(state.feedbackText);
   }
 }
 
 async function handleCommand(text, inputType = "text") {
   const result = await sendCommand(text, inputType);
-  latestReasoning = result.reasoning ?? result.payload?.recommendationReason ?? "";
   renderResult(result.replyText);
-  renderReasoning(latestReasoning);
   await refreshPanel();
   return result;
 }
@@ -356,6 +419,19 @@ document.querySelectorAll("[data-command]").forEach((button) => {
   });
 });
 
+document.querySelectorAll("[data-section-target]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const section = button.getAttribute("data-section-target");
+    if (!section) return;
+    if (section === "command") {
+      document.getElementById("command-input")?.focus();
+      return;
+    }
+    setActiveSection(section);
+  });
+});
+
 refreshPanel();
+setActiveSection(activeSection);
 setupVoiceRecognition();
 setInterval(refreshPanel, 3000);

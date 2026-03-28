@@ -55,6 +55,25 @@ export function extractSlots(input: string, intent: IntentType): SlotMap {
   }
 
   if (intent === IntentTypes.VolumeSet) {
+    const compact = text.replace(/\s+/g, "");
+    const numericMatch = text.match(/(\d+)\s*%?/);
+    const numericValue = numericMatch ? Number(numericMatch[1]) : undefined;
+    const relativeDecrease =
+      /(?:减|减少|调低|低一点|小一点|小声一点|轻一点|太大声了|太吵了|声音太大了|声音别这么大|别这么大声|turn down|volume down|lower|quieter)/i.test(
+        text
+      );
+    const relativeIncrease =
+      /(?:加|增加|调高|高一点|大一点|大声一点|响一点|turn up|volume up|raise|louder)/i.test(text);
+    const absoluteIntent =
+      /(?:调到|设为|设置为|set volume to)/i.test(text) ||
+      /^音量\s*\d+\s*%?$/i.test(compact) ||
+      /^volume\s*\d+\s*%?$/i.test(compact);
+
+    if ((relativeDecrease || relativeIncrease) && !absoluteIntent) {
+      const step = numericValue ?? 10;
+      return { volumeDelta: relativeDecrease ? -step : step };
+    }
+
     const match = text.match(/(\d+)\s*%?/);
     if (match) {
       return { volumePercent: Number(match[1]) };

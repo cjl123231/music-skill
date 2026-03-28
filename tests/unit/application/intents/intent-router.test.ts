@@ -68,6 +68,16 @@ describe("routeIntent", () => {
       expect(routeIntent("下载一个")).toBe(IntentTypes.DownloadTrack);
     });
 
+    it("matches colloquial relative volume variants", () => {
+      expect(routeIntent("音量减少10%")).toBe(IntentTypes.VolumeSet);
+      expect(routeIntent("减少一点")).toBe(IntentTypes.VolumeSet);
+      expect(routeIntent("小一点")).toBe(IntentTypes.VolumeSet);
+      expect(routeIntent("再小一点")).toBe(IntentTypes.VolumeSet);
+      expect(routeIntent("太大声了")).toBe(IntentTypes.VolumeSet);
+      expect(routeIntent("声音别这么大")).toBe(IntentTypes.VolumeSet);
+      expect(routeIntent("大声一点")).toBe(IntentTypes.VolumeSet);
+    });
+
     it("matches english play variants", () => {
       expect(routeIntent("play me a song")).toBe(IntentTypes.Play);
       expect(routeIntent("i want to hear something")).toBe(IntentTypes.Play);

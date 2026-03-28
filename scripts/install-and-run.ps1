@@ -12,7 +12,6 @@ Write-Host ""
 Write-Host "Starting Music Skill assistant..."
 
 $assistantCommand = @"
-$env:MUSIC_LIBRARY_DIR = '$projectRoot'
 Set-Location '$projectRoot'
 pnpm start:assistant
 "@

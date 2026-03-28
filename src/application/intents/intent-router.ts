@@ -53,7 +53,8 @@ const orderedRules: Array<{ pattern: RegExp; intent: IntentType }> = [
     intent: IntentTypes.FavoriteAdd
   },
   {
-    pattern: /^(音量调到|调到|把音量调到|音量设为|声音大小|调大声|调小声|volume|set volume to|turn up|turn down|louder|quieter)\s*\d*%?/i,
+    pattern:
+      /^(音量调到|调到|把音量调到|音量设为|声音大小|调大声|调小声|音量加|音量减|音量增加|音量减少|音量高一点|音量低一点|音量大一点|音量小一点|大声一点|小声一点|高一点|低一点|大一点|小一点|再大一点|再小一点|减少一点|增加一点|再减少一点|再增加一点|太大声了|太吵了|声音太大了|声音别这么大|轻一点|再轻一点|别这么大声|再响一点|响一点|volume|set volume to|turn up|turn down|louder|quieter|volume down|volume up|lower the volume|raise the volume)\s*\d*%?/i,
     intent: IntentTypes.VolumeSet
   },
   {

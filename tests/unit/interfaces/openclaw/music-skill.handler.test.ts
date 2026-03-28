@@ -6,11 +6,13 @@ describe("MusicSkillHandler", () => {
   beforeEach(() => {
     process.env.MUSIC_STORAGE_DRIVER = "json";
     process.env.MUSIC_DB_PATH = "./data/test-music-skill-handler.json";
+    process.env.MUSIC_LIBRARY_DIR = "";
     rmSync(process.env.MUSIC_DB_PATH, { force: true });
   });
 
   afterEach(() => {
     rmSync(process.env.MUSIC_DB_PATH!, { force: true });
+    delete process.env.MUSIC_LIBRARY_DIR;
   });
 
   it("returns structured payload for play intent", async () => {
