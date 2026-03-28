@@ -90,7 +90,9 @@ export class RecommendationPlanner {
     ]);
 
     const favoriteIds = new Set(favorites.map((track) => track.id));
-    const behaviorHints = events.map((event) => event.detail);
+    const behaviorHints = events
+      .filter((event) => !event.type.startsWith("preference.remembered.negative"))
+      .map((event) => event.detail);
     const pool = favorites.length > 0 ? favorites : allTracks;
 
     if (pool.length === 0) {

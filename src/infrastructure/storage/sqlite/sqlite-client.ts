@@ -2,11 +2,15 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+const sqliteClients = new Map<string, SqliteClient>();
+
 export class SqliteClient {
   readonly db: DatabaseSync;
+  readonly filePath: string;
 
   constructor(filePath = process.env.MUSIC_DB_PATH ?? "./data/music-skill.db") {
     const resolvedPath = resolve(filePath);
+    this.filePath = resolvedPath;
     mkdirSync(dirname(resolvedPath), { recursive: true });
     this.db = new DatabaseSync(resolvedPath);
     this.db.exec("PRAGMA journal_mode = WAL;");
@@ -16,6 +20,7 @@ export class SqliteClient {
 
   close(): void {
     this.db.close();
+    sqliteClients.delete(this.filePath);
   }
 
   private migrate(): void {
@@ -126,5 +131,13 @@ export class SqliteClient {
 }
 
 export function createSqliteClient(filePath?: string): SqliteClient {
-  return new SqliteClient(filePath);
+  const resolvedPath = resolve(filePath ?? process.env.MUSIC_DB_PATH ?? "./data/music-skill.db");
+  const existing = sqliteClients.get(resolvedPath);
+  if (existing) {
+    return existing;
+  }
+
+  const client = new SqliteClient(resolvedPath);
+  sqliteClients.set(resolvedPath, client);
+  return client;
 }

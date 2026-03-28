@@ -1,6 +1,8 @@
 import type { Static } from "@sinclair/typebox";
 import { Type } from "@sinclair/typebox";
 import { createAgentContainer } from "../app/agent-container.js";
+import { AppError } from "../shared/errors/app-error.js";
+import { ErrorCodes } from "../shared/errors/error-codes.js";
 
 const agentContainer = createAgentContainer();
 
@@ -37,6 +39,20 @@ export const musicControlParameters = Type.Object(
 
 export type MusicControlParams = Static<typeof musicControlParameters>;
 
+function resolveRequiredIdentity(params: MusicControlParams): { userId: string; sessionId: string } {
+  if (!params.userId?.trim() || !params.sessionId?.trim()) {
+    throw new AppError(
+      "music_control requires both userId and sessionId from the host runtime.",
+      ErrorCodes.InvalidInput
+    );
+  }
+
+  return {
+    userId: params.userId.trim(),
+    sessionId: params.sessionId.trim()
+  };
+}
+
 function buildCommand(params: MusicControlParams): string {
   switch (params.action) {
     case "play":
@@ -69,9 +85,10 @@ function buildCommand(params: MusicControlParams): string {
 }
 
 export async function executeMusicControl(params: MusicControlParams) {
+  const identity = resolveRequiredIdentity(params);
   const response = await agentContainer.musicAgentService.handle({
-    userId: params.userId ?? "openclaw-user",
-    sessionId: params.sessionId ?? "openclaw-session",
+    userId: identity.userId,
+    sessionId: identity.sessionId,
     inputType: "text",
     text: buildCommand(params),
     source: "openclaw",

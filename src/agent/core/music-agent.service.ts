@@ -126,7 +126,7 @@ export class MusicAgentService {
       await this.deps.preferenceMemory.remember(request.userId, plan.note, plan.sentiment);
       await this.deps.behaviorMemory.record({
         userId: request.userId,
-        type: "preference.remembered",
+        type: `preference.remembered.${plan.sentiment}`,
         detail: plan.note,
         timestamp: request.timestamp
       });

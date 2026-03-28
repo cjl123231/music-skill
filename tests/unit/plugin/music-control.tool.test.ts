@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { executeMusicControl } from "../../../src/plugin/music-control.tool.js";
+import { AppError } from "../../../src/shared/errors/app-error.js";
+import { ErrorCodes } from "../../../src/shared/errors/error-codes.js";
 
 describe("executeMusicControl", () => {
   it("plays music through the shared handler", async () => {
@@ -78,5 +80,15 @@ describe("executeMusicControl", () => {
     });
 
     expect(result.content[0]?.text.length).toBeGreaterThan(0);
+  });
+
+  it("rejects tool calls without host user/session identity", async () => {
+    await expect(
+      executeMusicControl({
+        action: "pause"
+      })
+    ).rejects.toMatchObject({
+      code: ErrorCodes.InvalidInput
+    } satisfies Partial<AppError>);
   });
 });
