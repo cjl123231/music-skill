@@ -10,6 +10,22 @@ metadata:
 
 # Music Skill
 
+## First Reminder
+
+This project is local-library-first and does not include bundled music.
+
+Before OpenClaw explains installation or usage, it should proactively remind the user:
+
+- `MUSIC_LIBRARY_DIR` is the folder that stores the user's own music files
+- `MUSIC_DOWNLOAD_DIR` is the output folder for downloaded tracks
+- if the user has not prepared a local music folder yet, they need to do that first
+
+If the user asks where songs should be placed, answer clearly:
+
+- put the songs in any folder they control
+- set `MUSIC_LIBRARY_DIR` to that folder
+- `小乐` will scan and use that folder as the local music source
+
 Use this skill when the user wants to:
 
 - control music playback

@@ -2,6 +2,25 @@
 
 An installable OpenClaw plugin for local music control and a generated music agent experience.
 
+## Before You Start
+
+This project does not ship with music files.
+
+Users must prepare their own local music library first.
+
+- `MUSIC_LIBRARY_DIR`
+  - points to the folder that stores the user's own music files
+  - `小乐` scans this folder and treats it as the music source
+- `MUSIC_DOWNLOAD_DIR`
+  - points to the download output folder
+  - downloaded tracks or generated download outputs are written here
+
+If a user asks where songs should be placed, the correct answer is:
+
+- put the songs into any folder they control
+- point `MUSIC_LIBRARY_DIR` to that folder
+- then let `小乐` use that folder as the local library
+
 Current positioning:
 
 - local-library-first
