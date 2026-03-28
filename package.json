@@ -1,0 +1,49 @@
+{
+  "name": "music-skill",
+  "version": "0.2.0",
+  "private": true,
+  "description": "OpenClaw music skill MVP scaffold",
+  "type": "module",
+  "files": [
+    "src/",
+    "ui/",
+    "scripts/",
+    "skills/",
+    "docs/",
+    "README.md",
+    ".env.example",
+    "openclaw.plugin.json",
+    "tsconfig.json"
+  ],
+  "openclaw": {
+    "extensions": ["./src/plugin/index.ts"]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsx src/app/bootstrap.ts",
+    "dev:http": "tsx src/interfaces/http/server-runner.ts",
+    "generate:agent": "tsx scripts/generate-music-agent.ts",
+    "migrate:sqlite": "tsx scripts/migrate-json-to-sqlite.ts",
+    "start:assistant": "powershell -ExecutionPolicy Bypass -File .\\scripts\\start-assistant.ps1",
+    "start:panel": "powershell -ExecutionPolicy Bypass -File .\\scripts\\start-panel.ps1",
+    "start:voice": "powershell -ExecutionPolicy Bypass -File .\\scripts\\start-voice.ps1",
+    "pack:plugin": "pnpm pack",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.41",
+    "music-metadata": "^11.9.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

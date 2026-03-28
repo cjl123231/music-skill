@@ -1,0 +1,25 @@
+{
+  "id": "music-skill",
+  "name": "Music Skill",
+  "description": "Control music playback through an OpenClaw tool and bundled skill.",
+  "version": "0.2.0",
+  "skills": ["./skills"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "defaultProvider": {
+        "type": "string",
+        "default": "stub"
+      },
+      "enableDownload": {
+        "type": "boolean",
+        "default": true
+      },
+      "enableVoice": {
+        "type": "boolean",
+        "default": true
+      }
+    }
+  }
+}

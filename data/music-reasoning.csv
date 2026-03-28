@@ -1,0 +1,13 @@
+Scene,Keywords_ZH,Keywords_EN,Time_Range,Mood,Recommended_Genre,Recommended_Tempo_BPM,Anti_Patterns,Decision_Rules
+工作专注,"工作,办公,专注,集中注意力,写代码,编程,做报告","work,focus,concentrate,coding,office,productive,deep work",09:00-17:00,专注,"轻音乐,古典,Lo-fi,纯音乐,环境音乐",60-90,"重金属,嘈杂EDM,快节奏说唱","{""has_lyrics"":""prefer_instrumental"",""long_session"":""add_ambient_mix""}"
+早晨起床,"早上好,起床,晨间,早安,早起","morning,wake up,good morning,sunrise",06:00-09:00,清醒,"流行,轻快民谣,独立流行,清新",90-120,"沉重慢歌,悲伤情歌,重低音","{""weekday"":""upbeat_pop"",""weekend"":""chill_acoustic""}"
+运动健身,"运动,健身,跑步,锻炼,有氧,举铁,骑车","workout,exercise,gym,running,fitness,training,cardio",any,激励,"电子,说唱,摇滚,EDM,Trap",120-160,"慢节奏,轻音乐,纯钢琴","{""high_intensity"":""edm_trap"",""low_intensity"":""pop_rock""}"
+晚间放松,"放松,休息,睡前,晚安,安静,静一静","relax,unwind,chill,evening,bedtime,wind down,calm",20:00-23:00,放松,"爵士,民谣,纯音乐,Chill,轻古典",50-80,"重低音,快节奏EDM,吵闹摇滚","{""pre_sleep"":""ambient_only"",""casual"":""jazz_folk""}"
+学习阅读,"学习,阅读,看书,读书,写作业,复习,备考","study,reading,homework,review,exam,learning",any,安静,"白噪音,钢琴曲,古典,环境音,纯音乐",40-70,"有歌词的歌曲,节奏强烈,说唱","{""exam_prep"":""pure_ambient"",""casual_reading"":""soft_classical""}"
+开车通勤,"开车,通勤,路上,堵车,上班路上,下班路上","driving,commute,road trip,in the car,on my way",07:00-09:00|17:00-19:00,轻松,"流行,摇滚,说唱,电台精选,经典老歌",100-130,"极慢节奏,催眠曲","{""traffic_jam"":""upbeat_pop"",""highway"":""rock_edm""}"
+聚会社交,"聚会,派对,朋友聚会,生日,庆祝,嗨起来","party,hangout,celebration,birthday,social,get together",any,欢快,"流行舞曲,EDM,说唱,拉丁,Funk",110-140,"悲伤情歌,纯古典,白噪音","{""small_group"":""indie_pop"",""big_party"":""edm_dance""}"
+下午茶休息,"下午茶,茶歇,摸鱼,小憩,歇一会,放松一下","tea time,break,afternoon break,snack time,chill break",14:00-16:00,惬意,"Bossa Nova,爵士,独立民谣,轻电子,Lounge",70-100,"重金属,Hardcore,高能EDM","{""solo"":""bossa_jazz"",""with_friends"":""indie_folk""}"
+做饭烹饪,"做饭,烹饪,下厨,做菜,洗碗","cooking,kitchen,baking,chef,meal prep",any,愉悦,"爵士,Bossa Nova,流行,轻快独立,Soul",80-110,"重型摇滚,死亡金属","{""quick_meal"":""upbeat_pop"",""slow_cooking"":""jazz_soul""}"
+冥想瑜伽,"冥想,瑜伽,打坐,正念,呼吸练习,静心","meditation,yoga,mindfulness,breathing,zen,calm",any,平静,"环境音,自然声,冥想音乐,颂钵,新世纪",40-60,"任何有歌词的音乐,节奏强烈","{""guided"":""nature_sounds"",""free"":""singing_bowls""}"
+悲伤疗愈,"难过,伤心,失恋,心情不好,郁闷,想哭","sad,heartbreak,down,blue,depressed,emotional,crying",any,治愈,"民谣,轻音乐,治愈系,Indie Folk,钢琴曲",50-80,"说唱摇滚,高能EDM","{""want_cry"":""emotional_ballad"",""want_heal"":""uplifting_folk""}"
+无聊打发,"无聊,没事干,随便听听,打发时间,消磨时间","bored,nothing to do,kill time,whatever,random",any,随意,"热门榜单,随机推荐,跨风格混搭,新歌推荐",any,"无特别反模式","{""default"":""trending_mix""}"

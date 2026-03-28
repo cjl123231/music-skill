@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Music Agent Panel</title>
+    <link rel="stylesheet" href="/panel/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">OpenClaw Companion</p>
+          <h1 id="agent-name">Music Agent Panel</h1>
+          <p class="muted" id="agent-description">查看播放状态、下载任务和收藏列表，并通过文字或语音控制音乐 Agent。</p>
+          <p class="muted" id="agent-wake-word">唤醒词：音乐控制</p>
+          <p class="muted" id="agent-template">人格模板：default</p>
+        </div>
+        <div class="topbar-side">
+          <div class="status-chip" id="connection-status">已连接</div>
+          <div class="library-chip" id="library-status">本地曲库未连接</div>
+        </div>
+      </header>
+
+      <main class="panel-grid">
+        <section class="card command-card">
+          <div class="card-head">
+            <h3>快速命令</h3>
+            <span class="muted">直接发送给 Agent</span>
+          </div>
+
+          <form id="command-form" class="command-form">
+            <input id="command-input" type="text" placeholder="例如：播放录音" autocomplete="off" />
+            <button type="submit" class="primary">发送</button>
+          </form>
+
+          <div class="voice-row">
+            <button type="button" id="voice-toggle" class="voice-button">开始语音</button>
+            <span class="muted" id="voice-status">语音识别未启动</span>
+            <button type="button" id="voice-retry" class="subtle-button" hidden>重试</button>
+          </div>
+
+          <label class="voice-option">
+            <input type="checkbox" id="voice-continuous" />
+            <span>连续监听模式</span>
+          </label>
+
+          <p class="muted voice-hint" id="voice-hint">
+            浏览器语音适合页面内控制。Windows 用户也可以使用宿主级语音脚本，不必一直打开页面。
+          </p>
+
+          <div class="command-presets">
+            <button type="button" data-command="播放录音">播放录音</button>
+            <button type="button" data-command="暂停">暂停</button>
+            <button type="button" data-command="继续播放">继续播放</button>
+            <button type="button" data-command="按我的喜好播放">按我的喜好播放</button>
+          </div>
+        </section>
+
+        <section class="card hero-card">
+          <div class="cover-art" id="cover-art">♫</div>
+          <div class="hero-copy">
+            <p class="section-label">当前播放</p>
+            <h2 id="track-title">当前没有播放内容</h2>
+            <p id="track-artist">等待音乐指令</p>
+            <p id="track-album">专辑信息待更新</p>
+            <div class="controls">
+              <button type="button" data-command="上一首">上一首</button>
+              <button type="button" class="primary" data-command="暂停" id="toggle-playback">暂停</button>
+              <button type="button" data-command="下一首">下一首</button>
+              <button type="button" data-command="收藏这首歌" id="favorite-button">收藏</button>
+              <button type="button" data-command="下载这首歌">下载</button>
+            </div>
+            <div class="progress-block">
+              <div class="progress-meta">
+                <span id="playback-status">空闲</span>
+                <span id="playback-duration">--:--</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="playback-progress"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card voice-card">
+          <div class="card-head">
+            <h3>语音命令</h3>
+            <span class="muted">耳机可直接使用</span>
+          </div>
+          <div class="result-body">
+            <p>Agent 记忆与偏好：</p>
+            <code class="inline-code">小乐，记住我喜欢周杰伦</code>
+            <code class="inline-code">小乐，以后别放这种</code>
+            <code class="inline-code">小乐，按我的喜好播放</code>
+            <p>场景化推荐：</p>
+            <code class="inline-code">小乐，来点适合写代码的</code>
+            <code class="inline-code">小乐，来点安静的</code>
+            <code class="inline-code">小乐，来点适合学习的</code>
+            <code class="inline-code">小乐，来点放松的</code>
+            <code class="inline-code">小乐，来点运动的</code>
+          </div>
+        </section>
+
+        <section class="card voice-card">
+          <div class="card-head">
+            <h3>Agent 判断</h3>
+            <span class="muted">最近推荐解释</span>
+          </div>
+          <div class="result-body">
+            <p id="agent-reasoning">等待 Agent 推荐理由</p>
+            <p class="muted" id="voice-example">建议说法：音乐控制，播放录音。也可以说：音乐控制，来点安静的。</p>
+          </div>
+        </section>
+
+        <section class="card favorites-card">
+          <div class="card-head">
+            <h3>我的收藏</h3>
+            <span class="muted" id="favorite-count">0 首</span>
+          </div>
+          <div class="favorite-list" id="favorite-list"></div>
+        </section>
+
+        <section class="card voice-card">
+          <div class="card-head">
+            <h3>耳机语音</h3>
+            <span class="muted">宿主级入口</span>
+          </div>
+          <div class="result-body">
+            <p>Windows 可直接运行宿主级语音脚本，用耳机麦克风常驻监听。</p>
+            <code class="inline-code">pnpm start:voice</code>
+          </div>
+        </section>
+
+        <section class="card lyrics-card">
+          <div class="card-head">
+            <h3>歌词</h3>
+            <span class="muted">MVP 占位</span>
+          </div>
+          <div class="lyrics-body" id="lyrics-body">
+            <p class="lyric-line active">当前歌曲暂无歌词</p>
+            <p class="lyric-line">后续可以接入 LRC 或在线歌词源</p>
+            <p class="lyric-line">这里会高亮当前行并跟随播放进度滚动</p>
+          </div>
+        </section>
+
+        <section class="card downloads-card">
+          <div class="card-head">
+            <h3>下载任务</h3>
+            <span class="muted" id="download-count">0 项</span>
+          </div>
+          <div class="download-list" id="download-list"></div>
+        </section>
+
+        <section class="card debug-card" id="debug-card" hidden>
+          <div class="card-head">
+            <h3>调试信息</h3>
+            <span class="muted">仅开发模式显示</span>
+          </div>
+          <div class="debug-grid">
+            <div><span class="muted">source</span><strong id="debug-source">-</strong></div>
+            <div><span class="muted">track id</span><strong id="debug-track-id">-</strong></div>
+            <div><span class="muted">file path</span><strong id="debug-file-path">-</strong></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="feedback-bar">
+        <span class="feedback-label">最近反馈</span>
+        <span id="feedback-text">等待操作</span>
+      </footer>
+    </div>
+
+    <script type="module" src="/panel/app.js"></script>
+  </body>
+</html>
