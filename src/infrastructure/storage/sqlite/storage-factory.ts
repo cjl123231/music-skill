@@ -110,11 +110,11 @@ export function readStorageSnapshot(userId?: string): StorageSnapshot {
     const latestSessionStatement =
       userId
         ? client.db.prepare(
-            `SELECT session_id, user_id, current_track_json, last_search_results_json, updated_at
+            `SELECT session_id, user_id, current_track_json, playback_status, volume_percent, last_search_results_json, updated_at
              FROM session_contexts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1`
           )
         : client.db.prepare(
-            `SELECT session_id, user_id, current_track_json, last_search_results_json, updated_at
+            `SELECT session_id, user_id, current_track_json, playback_status, volume_percent, last_search_results_json, updated_at
              FROM session_contexts ORDER BY updated_at DESC LIMIT 1`
           );
     const latestSessionRow = (userId ? latestSessionStatement.get(userId) : latestSessionStatement.get()) as
@@ -122,6 +122,8 @@ export function readStorageSnapshot(userId?: string): StorageSnapshot {
           session_id: string;
           user_id: string;
           current_track_json: string | null;
+          playback_status: "idle" | "playing" | "paused" | null;
+          volume_percent: number | null;
           last_search_results_json: string;
           updated_at: string;
         }
@@ -155,6 +157,8 @@ export function readStorageSnapshot(userId?: string): StorageSnapshot {
             sessionId: latestSessionRow.session_id,
             userId: latestSessionRow.user_id,
             currentTrack: latestSessionRow.current_track_json ? JSON.parse(latestSessionRow.current_track_json) : null,
+            playbackStatus: latestSessionRow.playback_status ?? "idle",
+            volumePercent: latestSessionRow.volume_percent ?? 50,
             lastSearchResults: JSON.parse(latestSessionRow.last_search_results_json),
             updatedAt: latestSessionRow.updated_at
           }

@@ -1,16 +1,16 @@
-# Music Skill
+# XiaoLe Music Agent
 
-An installable OpenClaw plugin for local music control and a generated music agent experience.
+An installable OpenClaw plugin that boots a **desktop-first local music player** with a generated XiaoLe agent.
 
 ## Before You Start
 
-This project does not ship with music files.
+This project does **not** ship with music files.
 
 Users must prepare their own local music library first.
 
 - `MUSIC_LIBRARY_DIR`
   - points to the folder that stores the user's own music files
-  - `小乐` scans this folder and treats it as the music source
+  - XiaoLe scans this folder and treats it as the playback source
 - `MUSIC_DOWNLOAD_DIR`
   - points to the download output folder
   - downloaded tracks or generated download outputs are written here
@@ -19,22 +19,15 @@ If a user asks where songs should be placed, the correct answer is:
 
 - put the songs into any folder they control
 - point `MUSIC_LIBRARY_DIR` to that folder
-- then let `小乐` use that folder as the local library
+- then let XiaoLe use that folder as the local library
 
-Current positioning:
+## Product Shape
 
-- local-library-first
-- agent-first user interaction
-- SQLite-backed local memory
-- Windows and macOS install paths
-
-## What Gets Installed
-
-This project behaves in two layers:
+This repo now behaves in two layers:
 
 1. `Music Skill`
 - installed into OpenClaw as the plugin entry
-- exposes the music capability to OpenClaw
+- exposes XiaoLe to the OpenClaw runtime
 
 2. `Music Agent`
 - generated automatically during install
@@ -74,9 +67,7 @@ without editing TypeScript code.
 
 ## Local Edition
 
-This repo is currently `Music Skill Local Edition`.
-
-That means:
+This repo is currently a local-first edition:
 
 - no external model API is required
 - no online music platform API is required
@@ -90,6 +81,7 @@ The local edition focuses on:
 - local download records
 - local voice control
 - local persistence with SQLite
+- desktop player runtime as the primary user experience
 
 ## Requirements
 
@@ -143,14 +135,34 @@ Windows behavior:
 
 - installs the plugin
 - generates the music agent
-- starts the panel
-- starts the host-level voice listener
+- starts the XiaoLe desktop player
 
 macOS behavior:
 
 - installs the plugin
 - generates the music agent
 - starts the panel
+
+## Desktop Player
+
+Primary startup path on Windows:
+
+```powershell
+pnpm desktop:start
+```
+
+This launches XiaoLe as a desktop player window and starts the local backend automatically.
+
+The browser panel remains available as a runtime surface, but it is no longer the preferred user entry.
+
+Other startup commands:
+
+```powershell
+pnpm start:panel
+pnpm start:voice
+pnpm start:assistant
+pnpm start:tray
+```
 
 ## Generate Agent Only
 
@@ -190,41 +202,6 @@ export MUSIC_AGENT_TEMPLATE=study_buddy
 
 The generator is non-destructive by default. Existing persona Markdown files are kept unless `--force` is passed.
 
-## Start Options
-
-Windows:
-
-```powershell
-pnpm start:panel
-pnpm start:voice
-pnpm start:assistant
-```
-
-macOS:
-
-```bash
-./scripts/start-panel.sh
-./scripts/start-assistant.sh
-```
-
-Notes:
-
-- if `PORT` is busy, the panel server automatically tries the next free port
-- Windows host-level voice listens to the default microphone and sends commands directly to the local agent endpoint
-- Windows host-level voice supports optional local system TTS, but it is off by default
-- macOS host-level voice is not implemented yet in this MVP
-
-Windows TTS defaults:
-
-```text
-MUSIC_AGENT_TTS_ENABLED=false
-MUSIC_AGENT_TTS_MODE=short
-MUSIC_AGENT_TTS_RATE=0
-MUSIC_AGENT_TTS_VOLUME=100
-```
-
-Set `MUSIC_AGENT_TTS_ENABLED=true` only if you want spoken replies.
-
 ## Local Music Library
 
 To scan a real local library:
@@ -233,7 +210,7 @@ Windows:
 
 ```powershell
 $env:MUSIC_LIBRARY_DIR = "D:\Your\Music"
-pnpm start:assistant
+pnpm desktop:start
 ```
 
 macOS:
@@ -335,6 +312,7 @@ pnpm install
 pnpm check
 pnpm test
 pnpm dev:http
+pnpm desktop:start
 ```
 
 ## Important Files
@@ -343,10 +321,12 @@ pnpm dev:http
 - [skills/music_skill/SKILL.md](/D:/Music-Skill/skills/music_skill/SKILL.md)
 - [src/plugin/index.ts](/D:/Music-Skill/src/plugin/index.ts)
 - [src/plugin/music-control.tool.ts](/D:/Music-Skill/src/plugin/music-control.tool.ts)
+- [src/player/core/player-engine.ts](/D:/Music-Skill/src/player/core/player-engine.ts)
+- [desktop/main.cjs](/D:/Music-Skill/desktop/main.cjs)
+- [desktop/preload.cjs](/D:/Music-Skill/desktop/preload.cjs)
 - [src/agent/core/music-agent.service.ts](/D:/Music-Skill/src/agent/core/music-agent.service.ts)
 - [src/agent/generator/music-agent-generator.ts](/D:/Music-Skill/src/agent/generator/music-agent-generator.ts)
-- [src/agent/generator/persona-templates.ts](/D:/Music-Skill/src/agent/generator/persona-templates.ts)
 - [src/application/intents/intent-router.ts](/D:/Music-Skill/src/application/intents/intent-router.ts)
 - [scripts/generate-music-agent.ts](/D:/Music-Skill/scripts/generate-music-agent.ts)
-- [docs/MUSIC_AGENT_PERSONA_ARCHITECTURE.md](/D:/Music-Skill/docs/MUSIC_AGENT_PERSONA_ARCHITECTURE.md)
-- [docs/USER_GUIDE.md](/D:/Music-Skill/docs/USER_GUIDE.md)
+- [docs/DESKTOP_PLAYER_PLAN.md](/D:/Music-Skill/docs/DESKTOP_PLAYER_PLAN.md)
+- [docs/PLAYER_AGENT_REFACTOR_PLAN.md](/D:/Music-Skill/docs/PLAYER_AGENT_REFACTOR_PLAN.md)

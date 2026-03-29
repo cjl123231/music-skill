@@ -90,7 +90,7 @@ function buildRecommendationReason(trackTitle: string, scene: string | undefined
   }
 
   if (scene) {
-    return `这首《${trackTitle}》更贴近你当前的${scene}场景。`;
+    return `这首《${trackTitle}》更贴近你当前的 ${scene} 场景。`;
   }
 
   return `这首《${trackTitle}》更贴近你最近的偏好。`;
@@ -113,11 +113,7 @@ export class MusicAgentService {
 
   async handle(request: AgentRequest): Promise<AgentResponse> {
     const preferenceRecords = await this.deps.preferenceMemory.list(request.userId);
-    const context = await this.deps.contextManager.load(
-      request.userId,
-      request.sessionId,
-      preferenceRecords
-    );
+    const context = await this.deps.contextManager.load(request.userId, request.sessionId, preferenceRecords);
     context.activeScene = await this.deps.sceneMemory.getActiveScene(request.userId);
 
     const plan = this.deps.planner.plan(request, context);

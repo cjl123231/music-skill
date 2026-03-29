@@ -100,8 +100,22 @@ export class RecommendationPlanner {
     }
 
     const ranked = [...pool].sort((a, b) => {
-      const aScore = scoreTrack(a, positivePreferences, negativePreferences, behaviorHints, favoriteIds.has(a.id), options.scene);
-      const bScore = scoreTrack(b, positivePreferences, negativePreferences, behaviorHints, favoriteIds.has(b.id), options.scene);
+      const aScore = scoreTrack(
+        a,
+        positivePreferences,
+        negativePreferences,
+        behaviorHints,
+        favoriteIds.has(a.id),
+        options.scene
+      );
+      const bScore = scoreTrack(
+        b,
+        positivePreferences,
+        negativePreferences,
+        behaviorHints,
+        favoriteIds.has(b.id),
+        options.scene
+      );
       return bScore - aScore;
     });
 

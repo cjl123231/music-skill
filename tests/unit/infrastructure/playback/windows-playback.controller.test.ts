@@ -59,4 +59,19 @@ describe("WindowsPlaybackController", () => {
     fakeHost.stdout.emit("data", Buffer.from('{"ok":true}\n'));
     await expect(second).resolves.toBeUndefined();
   });
+
+  it("returns playback state from the host reply", async () => {
+    const fakeHost = new FakeChildProcess();
+    const playbackModule = await import("../../../../src/infrastructure/playback/windows-playback.controller.js");
+    const controller = new playbackModule.WindowsPlaybackController(() => fakeHost as never);
+
+    const result = controller.getPlaybackState();
+    await Promise.resolve();
+    fakeHost.stdout.emit("data", Buffer.from('{"ok":true,"status":"paused","volumePercent":35}\n'));
+
+    await expect(result).resolves.toEqual({
+      status: "paused",
+      volumePercent: 35
+    });
+  });
 });

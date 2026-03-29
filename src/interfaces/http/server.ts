@@ -1,5 +1,6 @@
-import { createServer } from "node:http";
+import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { createAgentContainer } from "../../app/agent-container.js";
 import { agentRequestSchema } from "../../agent/core/agent-dto.js";
@@ -11,8 +12,15 @@ import { HttpRoutes } from "./routes.js";
 
 const agentContainer = createAgentContainer();
 
+function setNoCache(res: import("node:http").ServerResponse): void {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+}
+
 function sendJson(res: import("node:http").ServerResponse, statusCode: number, body: unknown): void {
   res.statusCode = statusCode;
+  setNoCache(res);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(body));
 }
@@ -24,12 +32,136 @@ function sendText(
   body: string
 ): void {
   res.statusCode = statusCode;
+  setNoCache(res);
   res.setHeader("Content-Type", contentType);
   res.end(body);
 }
 
 function readUiFile(fileName: string): string {
   return readFileSync(resolve("ui", fileName), "utf8");
+}
+
+function getPlaybackStatusLabel(status: "idle" | "playing" | "paused"): string {
+  if (status === "playing") return "播放中";
+  if (status === "paused") return "已暂停";
+  return "空闲";
+}
+
+function getVoiceScriptPath() {
+  return resolve("scripts", "start-voice.ps1");
+}
+
+function getVoiceStatus() {
+  if (process.platform !== "win32") {
+    return {
+      supported: false,
+      running: false,
+      label: "当前平台暂不支持从桌面播放器管理本地语音。"
+    };
+  }
+
+  const command = `
+$patterns = @("scripts\\\\start-voice.ps1","pnpm start:voice")
+$processes = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+  $commandLine = $_.CommandLine
+  if (-not $commandLine) { return $false }
+  foreach ($pattern in $patterns) {
+    if ($commandLine -like "*$pattern*") { return $true }
+  }
+  return $false
+}
+($processes | Select-Object -ExpandProperty ProcessId -Unique) -join ","
+`;
+
+  const result = spawnSync("powershell.exe", ["-NoProfile", "-Command", command], {
+    encoding: "utf8"
+  });
+  const stdout = (result.stdout ?? "").trim();
+  const processIds = stdout
+    ? stdout
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : [];
+
+  return {
+    supported: true,
+    running: processIds.length > 0,
+    processIds,
+    label: processIds.length > 0 ? "本地语音已在后台运行" : "本地语音未启动"
+  };
+}
+
+function launchLocalVoiceAgent() {
+  if (process.platform !== "win32") {
+    return {
+      status: "error",
+      action: "agent.voice_launch_failed",
+      replyText: "当前仅支持在 Windows 上从桌面播放器启动本地语音。"
+    };
+  }
+
+  const existing = getVoiceStatus();
+  if (existing.running) {
+    return {
+      status: "ok",
+      action: "agent.voice_already_running",
+      replyText: "本地语音已经在后台运行。直接对麦克风说“小乐，播放普通朋友”即可。"
+    };
+  }
+
+  const child = spawn(
+    "powershell.exe",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", getVoiceScriptPath()],
+    {
+      cwd: resolve("."),
+      env: { ...process.env, PORT: process.env.PORT ?? "3320" },
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true
+    }
+  );
+
+  child.unref();
+
+  return {
+    status: "ok",
+    action: "agent.voice_launch_requested",
+    replyText: "本地语音监听已在后台启动。现在可以直接对麦克风说“小乐，播放普通朋友”。"
+  };
+}
+
+function stopLocalVoiceAgent() {
+  if (process.platform !== "win32") {
+    return {
+      status: "error",
+      action: "agent.voice_stop_failed",
+      replyText: "当前仅支持在 Windows 上从桌面播放器停止本地语音。"
+    };
+  }
+
+  const status = getVoiceStatus();
+  if (!status.running) {
+    return {
+      status: "ok",
+      action: "agent.voice_not_running",
+      replyText: "本地语音当前没有运行。"
+    };
+  }
+
+  for (const processId of status.processIds ?? []) {
+    try {
+      process.kill(Number(processId));
+    } catch {
+      // ignore individual termination failures
+    }
+  }
+
+  return {
+    status: "ok",
+    action: "agent.voice_stopped",
+    replyText: "本地语音已停止。"
+  };
 }
 
 async function getPanelState() {
@@ -39,14 +171,14 @@ async function getPanelState() {
   const favorites = readFavoriteTracks(activeUserId);
   const playback = await agentContainer.provider.getNowPlaying();
   const currentTrack = playback.track ?? latestSession?.currentTrack ?? null;
-  const libraryTracks = (await agentContainer.provider.listTracks()).slice(0, 20);
+  const libraryTracks = await agentContainer.provider.listTracks();
   const latestDownloadTitle = latestDownloads[0]?.trackTitle;
   const isCurrentTrackFavorited = Boolean(
     currentTrack && favorites.some((track) => track.id === currentTrack.id)
   );
   const lyrics = readLocalLyrics(currentTrack?.filePath);
-  const playbackStatusLabel =
-    playback.status === "playing" ? "播放中" : playback.status === "paused" ? "已暂停" : "空闲";
+  const playbackStatus = currentTrack ? playback.status : "idle";
+  const volumePercent = playback.volumePercent ?? latestSession?.volumePercent ?? 50;
 
   return {
     agent: {
@@ -59,8 +191,9 @@ async function getPanelState() {
       templateId: agentContainer.profile.identity.templateId
     },
     currentTrack,
-    playbackStatusLabel,
-    volumePercent: playback.volumePercent,
+    playbackStatus,
+    playbackStatusLabel: getPlaybackStatusLabel(playbackStatus),
+    volumePercent,
     feedbackText: latestDownloadTitle ? `最近下载完成：《${latestDownloadTitle}》` : "等待操作",
     downloads: latestDownloads,
     libraryTracks,
@@ -68,7 +201,10 @@ async function getPanelState() {
     favoriteCount: favorites.length,
     isCurrentTrackFavorited,
     lyrics,
-    provider: getProviderStatus({ musicLibraryDir: agentContainer.profile.runtimeConfig.musicLibraryDir }),
+    localVoice: getVoiceStatus(),
+    provider: getProviderStatus({
+      musicLibraryDir: agentContainer.profile.runtimeConfig.musicLibraryDir
+    }),
     activeUserId,
     debug: process.env.MUSIC_SKILL_DEBUG === "1"
   };
@@ -112,6 +248,34 @@ export function createHttpServer() {
           });
         }
       })();
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/api/agent/voice/start") {
+      try {
+        sendJson(res, 200, launchLocalVoiceAgent());
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error.";
+        sendJson(res, 500, {
+          status: "error",
+          action: "agent.voice_launch_failed",
+          replyText: message
+        });
+      }
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/api/agent/voice/stop") {
+      try {
+        sendJson(res, 200, stopLocalVoiceAgent());
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error.";
+        sendJson(res, 500, {
+          status: "error",
+          action: "agent.voice_stop_failed",
+          replyText: message
+        });
+      }
       return;
     }
 

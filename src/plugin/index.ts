@@ -3,8 +3,8 @@ import { musicControlParameters, executeMusicControl } from "./music-control.too
 
 export default {
   id: "music-skill",
-  name: "Music Skill",
-  description: "Registers a music control tool and bundles the Music Skill instructions.",
+  name: "XiaoLe Music Agent",
+  description: "Registers XiaoLe as a music agent entry and exposes the music control execution tool.",
   configSchema: Type.Object({}, { additionalProperties: true }),
   register(api: {
     registerTool: (definition: {
@@ -18,7 +18,7 @@ export default {
       {
         name: "music_control",
         description:
-          "Control music playback, favorite the current track, add the current track to a playlist, download it, or inspect download history.",
+          "Launch XiaoLe or control playback, favorites, playlists, downloads, and preference-based music actions.",
         parameters: musicControlParameters,
         async execute(_id: string, params: unknown) {
           return executeMusicControl(params as Parameters<typeof executeMusicControl>[0]);

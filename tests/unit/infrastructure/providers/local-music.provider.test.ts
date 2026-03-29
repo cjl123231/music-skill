@@ -1,4 +1,8 @@
-import { vi } from "vitest";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { LocalMusicProvider } from "../../../../src/infrastructure/providers/local/local-music.provider.js";
+
 vi.mock("../../../../src/infrastructure/providers/local/music-metadata-loader.js", () => ({
   parseAudioMetadata: vi.fn(async () => ({
     common: {
@@ -12,12 +16,11 @@ vi.mock("../../../../src/infrastructure/providers/local/music-metadata-loader.js
   }))
 }));
 
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { LocalMusicProvider } from "../../../../src/infrastructure/providers/local/local-music.provider.js";
-
 describe("LocalMusicProvider", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("scans local music files and searches by filename", async () => {
     const root = "./data/test-library";
     rmSync(root, { recursive: true, force: true });
@@ -62,6 +65,53 @@ describe("LocalMusicProvider", () => {
     expect(state.status).toBe("paused");
     expect(state.volumePercent).toBe(22);
     expect(state.track?.title).toBe("Qing Tian");
+
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("automatically advances to the next track when playback finishes naturally", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-28T00:00:00.000Z"));
+
+    const root = "./data/test-library";
+    rmSync(root, { recursive: true, force: true });
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, "A First Song.mp3"), "");
+    writeFileSync(join(root, "B Second Song.mp3"), "");
+
+    let stateCallCount = 0;
+    const playbackController = {
+      play: async () => {},
+      pause: async () => {},
+      resume: async () => {},
+      stop: async () => {},
+      setVolume: async () => {},
+      getPlaybackState: async () => {
+        stateCallCount += 1;
+        if (stateCallCount === 1) {
+          return {
+            status: "playing" as const,
+            volumePercent: 50
+          };
+        }
+
+        return {
+          status: "idle" as const,
+          volumePercent: 50
+        };
+      }
+    };
+
+    const provider = new LocalMusicProvider(root, playbackController);
+    const tracks = await provider.listTracks();
+
+    await provider.play(tracks[0]!);
+    await provider.getNowPlaying();
+    vi.advanceTimersByTime(13_000);
+    const state = await provider.getNowPlaying();
+
+    expect(state.status).toBe("playing");
+    expect(state.track?.id).toBe(tracks[1]?.id);
 
     rmSync(root, { recursive: true, force: true });
   });

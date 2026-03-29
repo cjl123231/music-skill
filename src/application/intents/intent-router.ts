@@ -1,80 +1,101 @@
 import { IntentTypes, type IntentType } from "./intent-types.js";
 
+const CN = {
+  play: "\u64ad\u653e",
+  playOne: "\u653e\u4e00\u9996",
+  favoriteList: "\u67e5\u770b\u6536\u85cf|\u6211\u7684\u6536\u85cf|\u6536\u85cf\u5217\u8868",
+  favoriteAdd: "\u6536\u85cf\u8fd9\u9996\u6b4c|\u6536\u85cf\u8fd9\u9996|\u6211\u559c\u6b22\u8fd9\u9996",
+  download: "\u4e0b\u8f7d\u8fd9\u9996\u6b4c|\u4e0b\u8f7d\u5f53\u524d\u6b4c\u66f2",
+  downloadStatus: "\u4e0b\u8f7d\u597d\u4e86\u6ca1|\u4e0b\u8f7d\u8fdb\u5ea6",
+  downloadList: "\u67e5\u770b\u4e0b\u8f7d\u5217\u8868|\u4e0b\u8f7d\u8bb0\u5f55|\u4e0b\u8f7d\u5386\u53f2",
+  nowPlaying:
+    "\u73b0\u5728\u64ad\u653e\u7684\u662f\u4ec0\u4e48|\u73b0\u5728\u64ad\u653e\u7684\u662f\u5565|\u73b0\u5728\u5728\u653e\u4ec0\u4e48|\u8fd9\u662f\u4ec0\u4e48\u6b4c",
+  playlist:
+    "\u52a0\u5165.+\u6b4c\u5355|\u52a0\u5230.+\u6b4c\u5355|\u628a\u8fd9\u9996\u6b4c\u52a0\u5165.+\u6b4c\u5355|\u628a\u8fd9\u9996\u52a0\u5165.+\u6b4c\u5355",
+  volume:
+    "\u97f3\u91cf\u8c03\u5230|\u97f3\u91cf\u8bbe\u4e3a|\u628a\u97f3\u91cf\u8c03\u5230|\u97f3\u91cf\u589e\u52a0|\u97f3\u91cf\u51cf\u5c11|\u5927\u58f0\u4e00\u70b9|\u5c0f\u58f0\u4e00\u70b9|\u5927\u4e00\u70b9|\u5c0f\u4e00\u70b9|\u518d\u5927\u4e00\u70b9|\u518d\u5c0f\u4e00\u70b9|\u51cf\u5c11\u4e00\u70b9|\u589e\u52a0\u4e00\u70b9|\u9759\u97f3|\u53d6\u6d88\u9759\u97f3|\u592a\u5927\u58f0\u4e86|\u58f0\u97f3\u522b\u8fd9\u4e48\u5927",
+  resume: "\u7ee7\u7eed\u64ad\u653e|\u7ee7\u7eed|\u6062\u590d\u64ad\u653e",
+  pause: "\u6682\u505c|\u505c\u4e00\u4e0b|\u505c\u4e0b|\u505c\u6b62\u64ad\u653e",
+  next: "\u4e0b\u4e00\u9996|\u5207\u6b4c|\u4e0b\u4e00\u66f2|\u6362\u4e00\u9996",
+  previous: "\u4e0a\u4e00\u9996|\u4e0a\u4e00\u66f2|\u56de\u5230\u4e0a\u4e00\u9996",
+  scene:
+    "\u6765\u70b9\u9002\u5408\u5199\u4ee3\u7801\u7684|\u6765\u70b9\u5b89\u9759\u7684|\u6765\u70b9\u9002\u5408\u5b66\u4e60\u7684|\u6765\u70b9\u653e\u677e\u7684|\u6765\u70b9\u8fd0\u52a8\u7684",
+  preference: "\u6309\u6211\u7684\u559c\u597d\u64ad\u653e|\u6765\u70b9\u6211\u559c\u6b22\u7684",
+  rememberPositive: "\u8bb0\u4f4f\u6211\u559c\u6b22|\u6211\u559c\u6b22\u8fd9\u79cd|\u4ee5\u540e\u591a\u653e",
+  rememberNegative: "\u4ee5\u540e\u522b\u653e|\u4e0d\u8981\u518d\u653e|\u6211\u4e0d\u559c\u6b22\u8fd9\u79cd"
+};
+
 const orderedRules: Array<{ pattern: RegExp; intent: IntentType }> = [
   {
-    pattern: /^(播放(我收藏|我的收藏)(的?)?|play my favorites?|play what i like)/i,
+    pattern: new RegExp(`^(?:${CN.play}(?:\\u6211\\u7684\\u6536\\u85cf|\\u6211\\u6536\\u85cf\\u7684)|play my favorites?|play what i like)`, "i"),
     intent: IntentTypes.Play
   },
   {
-    pattern:
-      /^(来点适合写代码的|来点写代码听的|来点适合编程的|来点适合工作的|来点适合学习的|来点学习听的|来点适合阅读的|来点运动的|来点适合跑步的|来点适合健身的|来点安静的|放点安静的|来点轻一点的|来点放松的|来点适合放松的|来点适合睡前听的|来点适合通勤的|来点适合冥想的|来点欢快的|来点燃的|play something for coding|play music for work|play something chill|play workout music|play something relaxing|play study music|play something upbeat)/i,
+    pattern: new RegExp(`^(?:${CN.scene}|play something for coding|play something chill|play study music|play workout music|play something relaxing)`, "i"),
     intent: IntentTypes.RecommendScene
   },
   {
-    pattern: /^(按我的喜好播放|按我的喜好来点|来点我喜欢的|放点我喜欢的|根据我的口味来|推荐点我喜欢的|based on my taste|play what i like)/i,
+    pattern: new RegExp(`^(?:${CN.preference}|based on my taste|play what i like)`, "i"),
     intent: IntentTypes.RecommendPreference
   },
   {
-    pattern: /^(记住我喜欢|我喜欢这种|以后多放|我喜欢这个风格|多放点这种|我喜欢这个歌手|记住我爱听|remember i like|i like this style|more of this|i love this artist|remember my preference)/i,
+    pattern: new RegExp(`^(?:${CN.rememberPositive}|remember i like|i like this style|more of this)`, "i"),
     intent: IntentTypes.RememberPositive
   },
   {
-    pattern: /^(以后别放|不要再放|我不喜欢这种|别放这类|不要放这种|以后少放|我讨厌这种|不要再推荐这种|dont play this|stop recommending|i dont like this|no more of this|i hate this style)/i,
+    pattern: new RegExp(`^(?:${CN.rememberNegative}|dont play this|i dont like this|no more of this)`, "i"),
     intent: IntentTypes.RememberNegative
   },
   {
-    pattern:
-      /^(现在播放的是(什么|啥)?|当前是哪首歌|现在在放什么|现在放的是啥|这是什么歌|这首歌叫什么|在放什么|what is playing now|what song is this)/i,
+    pattern: new RegExp(`^(?:${CN.nowPlaying}|what is playing now|what song is this)`, "i"),
     intent: IntentTypes.NowPlaying
   },
   {
-    pattern: /^(查看收藏|看看收藏|我的收藏|收藏列表|show favorites|list favorites|my favorites|saved songs|liked songs)/i,
+    pattern: new RegExp(`^(?:${CN.favoriteList}|show favorites|list favorites|my favorites)`, "i"),
     intent: IntentTypes.FavoriteList
   },
   {
-    pattern:
-      /^(把这首歌加入.+歌单|把这首加入.+歌单|把这歌加入.+歌单|把.+加入.+歌单|add this song to .+ playlist|add to playlist)/i,
+    pattern: new RegExp(`^(?:${CN.playlist}|add this song to .+ playlist|add to playlist)`, "i"),
     intent: IntentTypes.PlaylistAddTrack
   },
   {
-    pattern: /^(下载这首歌|下载当前歌曲|把这首歌下载下来|保存这首歌|下载一个|download this song|download current)/i,
+    pattern: new RegExp(`^(?:${CN.download}|download this song|download current)`, "i"),
     intent: IntentTypes.DownloadTrack
   },
   {
-    pattern: /^(下载好了没|看下下载进度|下载进度|download status|is download done)/i,
+    pattern: new RegExp(`^(?:${CN.downloadStatus}|download status|is download done)`, "i"),
     intent: IntentTypes.DownloadStatus
   },
   {
-    pattern: /^(查看下载列表|打开下载列表|看下我下载了什么|我下载了什么|下载记录|下载历史|list downloads|show downloads)/i,
+    pattern: new RegExp(`^(?:${CN.downloadList}|list downloads|show downloads)`, "i"),
     intent: IntentTypes.DownloadList
   },
   {
-    pattern: /^(收藏这首歌|收藏这首|收藏一个|加到我喜欢|标记收藏|喜欢这首|我喜欢这首|favorite this|save this song|like this)/i,
+    pattern: new RegExp(`^(?:${CN.favoriteAdd}|favorite this|save this song|like this)`, "i"),
     intent: IntentTypes.FavoriteAdd
   },
   {
-    pattern:
-      /^(音量调到|调到|把音量调到|音量设为|声音大小|调大声|调小声|音量加|音量减|音量增加|音量减少|音量高一点|音量低一点|音量大一点|音量小一点|大声一点|小声一点|高一点|低一点|大一点|小一点|再大一点|再小一点|减少一点|增加一点|再减少一点|再增加一点|太大声了|太吵了|声音太大了|声音别这么大|轻一点|再轻一点|别这么大声|volume|set volume to|turn up|turn down|louder|quieter|volume down|volume up|lower the volume|raise the volume)\s*\d*%?/i,
+    pattern: new RegExp(`^(?:${CN.volume}|volume|set volume to|turn up|turn down|louder|quieter|volume down|volume up|lower the volume|raise the volume)\\s*\\d*%?`, "i"),
     intent: IntentTypes.VolumeSet
   },
   {
-    pattern: /^(继续播放|继续|继续放|接着放|接着播放|恢复播放|resume|continue|keep playing|go on|unpause)/i,
+    pattern: new RegExp(`^(?:${CN.resume}|resume|continue|keep playing|go on|unpause)`, "i"),
     intent: IntentTypes.Resume
   },
   {
-    pattern: /^(暂停|停一下|先停|停下|别放了|先暂停|停止播放|pause|stop playing|hold|wait)/i,
+    pattern: new RegExp(`^(?:${CN.pause}|pause|stop playing|hold|wait)`, "i"),
     intent: IntentTypes.Pause
   },
   {
-    pattern: /^(下一首|切歌|下一曲|跳过|换一首|换首歌|不听这个了|next|skip|skip this)/i,
+    pattern: new RegExp(`^(?:${CN.next}|next|skip|skip this)`, "i"),
     intent: IntentTypes.Next
   },
   {
-    pattern: /^(上一首|上一曲|切回去|上一个|回到上一首|退回去|前一首|previous|prev|go back|last track)/i,
+    pattern: new RegExp(`^(?:${CN.previous}|previous|prev|go back|last track)`, "i"),
     intent: IntentTypes.Previous
   },
   {
-    pattern: /^(播放|放一首|来一首|给我播放一个|放个|来点音乐|给我放|听一首|我想听|我想听歌|给我来一首|点首|来首|听听|play|listen to|start playing|put on|queue|play me|i want to hear|let me hear|start)/i,
+    pattern: new RegExp(`^(?:${CN.play}|${CN.playOne}|\\u6765\\u4e00\\u9996|\\u7ed9\\u6211\\u653e|\\u542c\\u4e00\\u9996|\\u70b9\\u9996|play|listen to|start playing|put on|queue|play me|start)`, "i"),
     intent: IntentTypes.Play
   }
 ];

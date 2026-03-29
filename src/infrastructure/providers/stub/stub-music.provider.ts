@@ -51,6 +51,11 @@ export class StubMusicProvider implements MusicProvider {
     return this.playback;
   }
 
+  async restorePlayback(track: Track, status: PlaybackState["status"] = "paused"): Promise<PlaybackState> {
+    this.playback = { ...this.playback, status, track };
+    return this.playback;
+  }
+
   async pause(): Promise<PlaybackState> {
     this.ensureTrack();
     this.playback = { ...this.playback, status: "paused" };

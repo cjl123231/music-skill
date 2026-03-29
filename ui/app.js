@@ -1,19 +1,25 @@
 const stateUrl = "/api/panel/state";
 const actionUrl = "/agent/music/handle";
+const launchVoiceUrl = "/api/agent/voice/start";
+const stopVoiceUrl = "/api/agent/voice/stop";
 
 const userId = "panel-user";
 const sessionId = "panel-session";
-const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-let recognition = null;
-let isRecording = false;
-let isHandlingVoiceCommand = false;
-let lastTranscript = "";
-let lastFinalTranscript = "";
-let lastFinalAt = 0;
-let shouldContinueListening = false;
-let restartTimer = null;
+const BUTTON_COMMANDS = {
+  previous: "previous",
+  pause: "pause",
+  resume: "continue",
+  favorite: "favorite this",
+  download: "download this song",
+  volumeDown: "volume down 10%",
+  volumeUp: "volume up 10%"
+};
+
 let activeSection = "library";
+let panelState = null;
+let refreshRequestId = 0;
+let isCommandPending = false;
 
 let playbackClock = {
   trackId: null,
@@ -30,13 +36,27 @@ function formatDuration(durationMs) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function normalizeTranscript(text) {
-  return text.replace(/[，。！？,.!?]/g, " ").replace(/\s+/g, " ").trim();
-}
+function setCommandPending(pending) {
+  isCommandPending = pending;
 
-function shouldIgnoreDuplicate(transcript) {
-  const now = Date.now();
-  return transcript === lastFinalTranscript && now - lastFinalAt < 3000;
+  document
+    .querySelectorAll("button[data-command], #command-input, #command-submit, #voice-launch, #voice-stop")
+    .forEach((element) => {
+      if (!(element instanceof HTMLButtonElement) && !(element instanceof HTMLInputElement)) {
+        return;
+      }
+
+      if (pending) {
+        element.dataset.wasDisabled = element.disabled ? "1" : "0";
+        element.disabled = true;
+        return;
+      }
+
+      if (element.dataset.wasDisabled === "0") {
+        element.disabled = false;
+      }
+      delete element.dataset.wasDisabled;
+    });
 }
 
 function createDownloadItem(task) {
@@ -56,23 +76,7 @@ function createDownloadItem(task) {
   return item;
 }
 
-function createFavoriteItem(track) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "favorite-item favorite-play-button";
-  button.innerHTML = `
-    <div class="download-title">
-      <strong>${track.title}</strong>
-      <span class="muted">${track.artist}</span>
-    </div>
-  `;
-  button.addEventListener("click", async () => {
-    await handleCommand(`play ${track.title}`);
-  });
-  return button;
-}
-
-function createLibraryItem(track, currentTrackId) {
+function createTrackButton(track, currentTrackId) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "favorite-item favorite-play-button";
@@ -87,12 +91,13 @@ function createLibraryItem(track, currentTrackId) {
     </div>
   `;
   button.addEventListener("click", async () => {
+    if (isCommandPending) return;
     await handleCommand(`play ${track.title}`);
   });
   return button;
 }
 
-async function sendCommand(text, inputType = "text") {
+async function sendCommand(text, inputType = "text", source = "panel") {
   const response = await fetch(actionUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -101,10 +106,10 @@ async function sendCommand(text, inputType = "text") {
       sessionId,
       inputType,
       text,
-      source: "panel"
+      source,
+      timestamp: new Date().toISOString()
     })
   });
-
   return response.json();
 }
 
@@ -116,17 +121,33 @@ function renderProviderStatus(provider) {
 }
 
 function renderAgentState(agent) {
-  const wakeWord = agent?.wakeWord ?? "小乐";
-  const templateId = agent?.templateId ?? "default";
-  document.getElementById("agent-name").textContent = agent?.name ?? "Music Agent Panel";
-  document.getElementById("agent-description").textContent =
-    agent?.description ?? "查看播放状态、下载任务和收藏列表，并通过文字或语音控制音乐 Agent。";
-  document.getElementById("agent-wake-word").textContent = `唤醒词：${wakeWord}`;
-  document.getElementById("agent-template").textContent = `人格模板：${templateId}`;
+  document.getElementById("agent-name").textContent = agent?.name ?? "Music Agent";
+  document.getElementById("agent-description").textContent = agent?.description ?? "本地音乐助手";
+  document.getElementById("agent-wake-word").textContent = `唤醒词：${agent?.wakeWord ?? "小乐"}`;
+  document.getElementById("agent-template").textContent = `人格模板：${agent?.templateId ?? "default"}`;
 }
 
 function renderResult(replyText) {
   document.getElementById("feedback-text").textContent = replyText;
+}
+
+function renderVoiceState(localVoice) {
+  const voiceStatus = document.getElementById("voice-status");
+  const launchButton = document.getElementById("voice-launch");
+  const stopButton = document.getElementById("voice-stop");
+
+  if (!localVoice?.supported) {
+    voiceStatus.textContent = localVoice?.label ?? "当前平台暂不支持从桌面播放器管理本地语音。";
+    launchButton.textContent = "本地语音不可用";
+    launchButton.disabled = true;
+    stopButton.disabled = true;
+    return;
+  }
+
+  voiceStatus.textContent = localVoice.label;
+  launchButton.textContent = localVoice.running ? "本地语音已启动" : "启动本地语音";
+  launchButton.disabled = Boolean(localVoice.running || isCommandPending);
+  stopButton.disabled = Boolean(!localVoice.running || isCommandPending);
 }
 
 function setActiveSection(section) {
@@ -134,14 +155,11 @@ function setActiveSection(section) {
   document.querySelectorAll("[data-section-target]").forEach((element) => {
     element.classList.toggle("is-active", element.getAttribute("data-section-target") === section);
   });
-
   document.querySelectorAll("[data-section-panel]").forEach((element) => {
     element.classList.toggle("is-visible", element.getAttribute("data-section-panel") === section);
   });
-
-  const commandSurface = document.querySelector('[data-section-surface="command"]');
   if (section === "command") {
-    commandSurface?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("command-input")?.focus();
   }
 }
 
@@ -151,7 +169,7 @@ function renderFavorites(state) {
   const favoriteList = document.getElementById("favorite-list");
 
   favoriteButton.textContent = state.isCurrentTrackFavorited ? "已收藏" : "收藏";
-  favoriteButton.disabled = Boolean(state.isCurrentTrackFavorited);
+  favoriteButton.disabled = Boolean(state.isCurrentTrackFavorited || !state.currentTrack || isCommandPending);
 
   favoriteCount.textContent = `${state.favoriteCount ?? 0} 首`;
   favoriteList.innerHTML = "";
@@ -159,12 +177,14 @@ function renderFavorites(state) {
   if (!state.favorites?.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
-    empty.textContent = "你还没有收藏任何歌曲";
+    empty.textContent = "还没有收藏歌曲。";
     favoriteList.appendChild(empty);
     return;
   }
 
-  state.favorites.forEach((track) => favoriteList.appendChild(createFavoriteItem(track)));
+  state.favorites.forEach((track) => {
+    favoriteList.appendChild(createTrackButton(track, state.currentTrack?.id ?? null));
+  });
 }
 
 function renderLibraryTracks(state) {
@@ -178,12 +198,14 @@ function renderLibraryTracks(state) {
   if (!state.libraryTracks?.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
-    empty.textContent = "当前曲库里还没有可播放的歌曲";
+    empty.textContent = "当前曲库里没有可播放的歌曲。";
     libraryList.appendChild(empty);
     return;
   }
 
-  state.libraryTracks.forEach((track) => libraryList.appendChild(createLibraryItem(track, currentTrackId)));
+  state.libraryTracks.forEach((track) => {
+    libraryList.appendChild(createTrackButton(track, currentTrackId));
+  });
 }
 
 function renderDownloads(state) {
@@ -194,17 +216,19 @@ function renderDownloads(state) {
   if (!state.downloads.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
-    empty.textContent = "当前没有下载任务";
+    empty.textContent = "暂无下载任务。";
     downloadList.appendChild(empty);
     return;
   }
 
-  state.downloads.forEach((task) => downloadList.appendChild(createDownloadItem(task)));
+  state.downloads.forEach((task) => {
+    downloadList.appendChild(createDownloadItem(task));
+  });
 }
 
 function syncPlaybackClock(state) {
   const trackId = state.currentTrack?.id ?? null;
-  const status = state.currentTrack ? state.playbackStatusLabel : "空闲";
+  const status = state.playbackStatus ?? "idle";
   const now = Date.now();
 
   if (!trackId) {
@@ -215,7 +239,7 @@ function syncPlaybackClock(state) {
   if (playbackClock.trackId !== trackId) {
     playbackClock = {
       trackId,
-      startedAt: status === "播放中" ? now : 0,
+      startedAt: status === "playing" ? now : 0,
       elapsedMs: 0,
       status
     };
@@ -223,9 +247,9 @@ function syncPlaybackClock(state) {
   }
 
   if (playbackClock.status !== status) {
-    if (status === "播放中") {
+    if (status === "playing") {
       playbackClock.startedAt = now;
-    } else if (playbackClock.status === "播放中") {
+    } else if (playbackClock.status === "playing") {
       playbackClock.elapsedMs += Math.max(0, now - playbackClock.startedAt);
       playbackClock.startedAt = 0;
     }
@@ -236,7 +260,7 @@ function syncPlaybackClock(state) {
 function getEstimatedElapsedMs(state) {
   if (!state.currentTrack) return 0;
   const now = Date.now();
-  if (playbackClock.status === "播放中" && playbackClock.startedAt) {
+  if (playbackClock.status === "playing" && playbackClock.startedAt) {
     return playbackClock.elapsedMs + Math.max(0, now - playbackClock.startedAt);
   }
   return playbackClock.elapsedMs;
@@ -244,12 +268,13 @@ function getEstimatedElapsedMs(state) {
 
 function renderPlayer(state) {
   syncPlaybackClock(state);
+
   const elapsedMs = getEstimatedElapsedMs(state);
   const durationMs = state.currentTrack?.durationMs ?? 0;
   const progressPercent = durationMs ? Math.min(100, (elapsedMs / durationMs) * 100) : 0;
 
-  document.getElementById("track-title").textContent = state.currentTrack?.title ?? "当前没有播放内容";
-  document.getElementById("track-artist").textContent = state.currentTrack?.artist ?? "等待音乐指令";
+  document.getElementById("track-title").textContent = state.currentTrack?.title ?? "暂无歌曲";
+  document.getElementById("track-artist").textContent = state.currentTrack?.artist ?? "等待命令";
   document.getElementById("track-album").textContent = state.currentTrack?.album
     ? `专辑：${state.currentTrack.album}`
     : "专辑信息待更新";
@@ -258,31 +283,52 @@ function renderPlayer(state) {
   document.getElementById("volume-value").textContent = `${state.volumePercent ?? 50}%`;
   document.getElementById("playback-progress").style.width = `${progressPercent}%`;
   document.getElementById("volume-progress").style.width = `${state.volumePercent ?? 50}%`;
+  document.getElementById("mini-track-title").textContent = state.currentTrack?.title ?? "未在播放";
+  document.getElementById("mini-track-artist").textContent = state.currentTrack?.artist ?? "等待命令";
 
-  document.getElementById("mini-track-title").textContent = state.currentTrack?.title ?? "未播放";
-  document.getElementById("mini-track-artist").textContent = state.currentTrack?.artist ?? "等待指令";
-
-  document.querySelectorAll("[data-requires-track='true']").forEach((button) => {
-    button.disabled = !state.currentTrack;
-  });
+  const hasTrack = Boolean(state.currentTrack);
+  const isPlaying = state.playbackStatus === "playing";
+  const isPaused = state.playbackStatus === "paused";
 
   const toggleButton = document.getElementById("toggle-playback");
-  if (state.playbackStatusLabel === "播放中") {
+  if (isPlaying) {
     toggleButton.innerHTML = '<span aria-hidden="true">&#10074;&#10074;</span>';
-    toggleButton.setAttribute("data-command", "pause");
-    toggleButton.setAttribute("title", "暂停");
+    toggleButton.setAttribute("data-command", BUTTON_COMMANDS.pause);
+    toggleButton.title = "暂停";
     toggleButton.setAttribute("aria-label", "暂停");
-  } else if (state.currentTrack) {
+    toggleButton.disabled = isCommandPending;
+  } else if (isPaused) {
     toggleButton.innerHTML = '<span aria-hidden="true">&#9654;</span>';
-    toggleButton.setAttribute("data-command", "continue");
-    toggleButton.setAttribute("title", "继续播放");
+    toggleButton.setAttribute("data-command", BUTTON_COMMANDS.resume);
+    toggleButton.title = "继续播放";
     toggleButton.setAttribute("aria-label", "继续播放");
+    toggleButton.disabled = isCommandPending;
   } else {
-    toggleButton.innerHTML = '<span aria-hidden="true">&#10074;&#10074;</span>';
-    toggleButton.setAttribute("data-command", "pause");
-    toggleButton.setAttribute("title", "暂停");
-    toggleButton.setAttribute("aria-label", "暂停");
+    toggleButton.innerHTML = '<span aria-hidden="true">&#9654;</span>';
+    toggleButton.setAttribute("data-command", BUTTON_COMMANDS.resume);
+    toggleButton.title = "继续播放";
+    toggleButton.setAttribute("aria-label", "继续播放");
+    toggleButton.disabled = true;
   }
+
+  document.querySelectorAll("[data-requires-track='true']").forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (button.id === "toggle-playback") return;
+    const command = button.getAttribute("data-command");
+    if (!hasTrack || isCommandPending) {
+      button.disabled = true;
+      return;
+    }
+    if (command === BUTTON_COMMANDS.pause) {
+      button.disabled = !isPlaying;
+      return;
+    }
+    if (command === BUTTON_COMMANDS.resume) {
+      button.disabled = !isPaused;
+      return;
+    }
+    button.disabled = false;
+  });
 }
 
 function renderLyrics(state) {
@@ -291,30 +337,29 @@ function renderLyrics(state) {
   lyricsBody.innerHTML = "";
 
   if (!state.currentTrack) {
-    lyricsMeta.textContent = "未播放";
+    lyricsMeta.textContent = "空闲";
     const line = document.createElement("p");
     line.className = "lyric-line active";
-    line.textContent = "先播放一首歌，再查看歌词。";
+    line.textContent = "播放一首歌后，这里会显示歌词。";
     lyricsBody.appendChild(line);
     return;
   }
 
   if (!state.lyrics?.found || !state.lyrics.lines?.length) {
-    lyricsMeta.textContent = "未找到";
+    lyricsMeta.textContent = "未找到歌词";
     const line = document.createElement("p");
     line.className = "lyric-line active";
-    line.textContent = "当前歌曲没有匹配到本地歌词文件。";
+    line.textContent = "没有找到这首歌的本地歌词文件。";
     lyricsBody.appendChild(line);
 
     const hint = document.createElement("p");
     hint.className = "lyric-line";
-    hint.textContent = "把同名 .lrc 或 .txt 放在音频文件旁边即可显示。";
+    hint.textContent = "请把同名 .lrc 或 .txt 放在音频文件旁边。";
     lyricsBody.appendChild(hint);
     return;
   }
 
   lyricsMeta.textContent = state.lyrics.format ? state.lyrics.format.toUpperCase() : "歌词";
-
   const elapsedMs = getEstimatedElapsedMs(state);
   let activeIndex = -1;
   state.lyrics.lines.forEach((line, index) => {
@@ -323,7 +368,7 @@ function renderLyrics(state) {
     }
   });
 
-  state.lyrics.lines.slice(0, 120).forEach((line, index) => {
+  state.lyrics.lines.slice(0, 160).forEach((line, index) => {
     const row = document.createElement("p");
     row.className = `lyric-line${index === activeIndex ? " active is-current" : ""}`;
     row.textContent = line.text;
@@ -339,189 +384,121 @@ function renderDebug(state) {
 }
 
 async function refreshPanel() {
-  const response = await fetch(stateUrl);
+  const requestId = ++refreshRequestId;
+  const response = await fetch(stateUrl, { cache: "no-store" });
   const state = await response.json();
+  if (requestId !== refreshRequestId) return;
 
+  panelState = state;
   renderAgentState(state.agent);
   renderProviderStatus(state.provider);
+  renderVoiceState(state.localVoice);
   renderPlayer(state);
   renderFavorites(state);
   renderLibraryTracks(state);
   renderDownloads(state);
   renderLyrics(state);
   renderDebug(state);
-
-  if (!isHandlingVoiceCommand) {
-    renderResult(state.feedbackText);
-  }
+  renderResult(state.feedbackText);
 }
 
-async function handleCommand(text, inputType = "text") {
-  const result = await sendCommand(text, inputType);
-  renderResult(result.replyText);
-  await refreshPanel();
-  return result;
-}
-
-function setVoiceStatus(text, recording = false, retryable = false) {
-  const button = document.getElementById("voice-toggle");
-  const status = document.getElementById("voice-status");
-  const retryButton = document.getElementById("voice-retry");
-
-  status.textContent = text;
-  button.textContent = recording ? "停止语音" : "开始语音";
-  button.classList.toggle("recording", recording);
-  retryButton.hidden = !retryable;
-}
-
-function clearRestartTimer() {
-  if (restartTimer) {
-    clearTimeout(restartTimer);
-    restartTimer = null;
-  }
-}
-
-function scheduleRestart() {
-  clearRestartTimer();
-  if (!shouldContinueListening || !recognition || isRecording || isHandlingVoiceCommand) {
-    return;
+async function handleCommand(text) {
+  if (isCommandPending) {
+    renderResult("上一条命令还在处理中，请稍等。");
+    return null;
   }
 
-  restartTimer = setTimeout(() => {
-    if (!shouldContinueListening || !recognition || isRecording || isHandlingVoiceCommand) {
-      return;
+  setCommandPending(true);
+  try {
+    const result = await sendCommand(text, "text", "panel");
+    renderResult(result.replyText);
+    await refreshPanel();
+    return result;
+  } catch (error) {
+    renderResult(error instanceof Error ? error.message : "命令执行失败。");
+    return null;
+  } finally {
+    setCommandPending(false);
+    if (panelState) {
+      renderPlayer(panelState);
+      renderFavorites(panelState);
+      renderVoiceState(panelState.localVoice);
     }
-
-    try {
-      recognition.start();
-    } catch {
-      setVoiceStatus("语音重新启动失败，可以点击重试", false, true);
-    }
-  }, 800);
+  }
 }
 
-function setupVoiceRecognition() {
-  if (!SpeechRecognitionCtor) {
-    setVoiceStatus("当前浏览器不支持原生语音识别", false, false);
-    document.getElementById("voice-toggle").disabled = true;
-    return;
-  }
+async function postVoiceAction(url) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  });
+  return response.json();
+}
 
-  const continuousToggle = document.getElementById("voice-continuous");
-  continuousToggle.addEventListener("change", () => {
-    shouldContinueListening = continuousToggle.checked;
-    if (shouldContinueListening && !isRecording && recognition && !isHandlingVoiceCommand) {
-      scheduleRestart();
+async function launchLocalVoice() {
+  if (isCommandPending) return;
+  setCommandPending(true);
+  try {
+    const result = await postVoiceAction(launchVoiceUrl);
+    document.getElementById("voice-status").textContent = result.replyText ?? "本地语音已启动。";
+    renderResult(result.replyText ?? "本地语音已启动。");
+    await refreshPanel();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "启动本地语音失败。";
+    document.getElementById("voice-status").textContent = message;
+    renderResult(message);
+  } finally {
+    setCommandPending(false);
+    if (panelState) {
+      renderVoiceState(panelState.localVoice);
     }
+  }
+}
+
+async function stopLocalVoice() {
+  if (isCommandPending) return;
+  setCommandPending(true);
+  try {
+    const result = await postVoiceAction(stopVoiceUrl);
+    document.getElementById("voice-status").textContent = result.replyText ?? "本地语音已停止。";
+    renderResult(result.replyText ?? "本地语音已停止。");
+    await refreshPanel();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "停止本地语音失败。";
+    document.getElementById("voice-status").textContent = message;
+    renderResult(message);
+  } finally {
+    setCommandPending(false);
+    if (panelState) {
+      renderVoiceState(panelState.localVoice);
+    }
+  }
+}
+
+function bindLocalVoiceControls() {
+  document.getElementById("voice-launch").addEventListener("click", () => {
+    void launchLocalVoice();
   });
 
-  recognition = new SpeechRecognitionCtor();
-  recognition.lang = "zh-CN";
-  recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
-  recognition.continuous = false;
-
-  recognition.onstart = () => {
-    isRecording = true;
-    setVoiceStatus(shouldContinueListening ? "连续监听中，请开始说话" : "正在听，请开始说话", true, false);
-  };
-
-  recognition.onend = () => {
-    isRecording = false;
-    if (!lastTranscript) {
-      setVoiceStatus("语音识别已停止，没有拿到结果", false, true);
-      scheduleRestart();
-      return;
-    }
-
-    setVoiceStatus(`识别结果：${lastTranscript}`, false, true);
-    scheduleRestart();
-  };
-
-  recognition.onerror = (event) => {
-    isRecording = false;
-    setVoiceStatus(`语音识别失败：${event.error}，可以点击重试`, false, true);
-    scheduleRestart();
-  };
-
-  recognition.onresult = async (event) => {
-    const transcript = normalizeTranscript(
-      Array.from(event.results)
-        .map((result) => result[0]?.transcript ?? "")
-        .join(" ")
-    );
-
-    if (!transcript) return;
-
-    lastTranscript = transcript;
-    document.getElementById("command-input").value = transcript;
-
-    const latestResult = event.results[event.results.length - 1];
-    if (!latestResult?.isFinal) {
-      setVoiceStatus(`识别中：${transcript}`, true, false);
-      return;
-    }
-
-    if (shouldIgnoreDuplicate(transcript)) {
-      setVoiceStatus(`已忽略重复语音：${transcript}`, false, true);
-      scheduleRestart();
-      return;
-    }
-
-    lastFinalTranscript = transcript;
-    lastFinalAt = Date.now();
-    isHandlingVoiceCommand = true;
-    setVoiceStatus(`识别结果：${transcript}`, false, true);
-    renderResult(`识别结果：${transcript}`);
-
-    try {
-      await handleCommand(transcript, "voice");
-    } finally {
-      isHandlingVoiceCommand = false;
-      scheduleRestart();
-    }
-  };
-
-  document.getElementById("voice-toggle").addEventListener("click", () => {
-    if (!recognition) return;
-
-    if (isRecording) {
-      shouldContinueListening = false;
-      document.getElementById("voice-continuous").checked = false;
-      clearRestartTimer();
-      recognition.stop();
-      return;
-    }
-
-    lastTranscript = "";
-    clearRestartTimer();
-    recognition.start();
-  });
-
-  document.getElementById("voice-retry").addEventListener("click", () => {
-    if (!recognition) return;
-    lastTranscript = "";
-    clearRestartTimer();
-    recognition.start();
+  document.getElementById("voice-stop").addEventListener("click", () => {
+    void stopLocalVoice();
   });
 }
 
 document.getElementById("command-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (isCommandPending) return;
   const input = document.getElementById("command-input");
   const text = input.value.trim();
   if (!text) return;
-
   await handleCommand(text);
   input.value = "";
 });
 
 document.querySelectorAll("[data-command]").forEach((button) => {
   button.addEventListener("click", async () => {
-    if (button.id === "favorite-button" && button.disabled) {
-      return;
-    }
-
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (button.disabled || isCommandPending) return;
     const text = button.getAttribute("data-command");
     if (!text) return;
     await handleCommand(text);
@@ -532,15 +509,16 @@ document.querySelectorAll("[data-section-target]").forEach((button) => {
   button.addEventListener("click", () => {
     const section = button.getAttribute("data-section-target");
     if (!section) return;
-    if (section === "command") {
-      document.getElementById("command-input")?.focus();
-      return;
-    }
     setActiveSection(section);
   });
 });
 
-refreshPanel();
-setActiveSection(activeSection);
-setupVoiceRecognition();
-setInterval(refreshPanel, 1000);
+refreshPanel().then(() => {
+  setActiveSection(activeSection);
+  bindLocalVoiceControls();
+  setInterval(() => {
+    if (!isCommandPending) {
+      void refreshPanel();
+    }
+  }, 1000);
+});

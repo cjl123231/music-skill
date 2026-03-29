@@ -4,9 +4,8 @@ import type { PlaybackState } from "../../../domain/entities/playback-state.js";
 import type { Track } from "../../../domain/entities/track.js";
 import type { MusicProvider } from "../../../domain/services/music-provider.js";
 import type { PlaybackController } from "../../../domain/services/playback-controller.js";
-import { AppError } from "../../../shared/errors/app-error.js";
-import { ErrorCodes } from "../../../shared/errors/error-codes.js";
 import { parseAudioMetadata } from "./music-metadata-loader.js";
+import { PlayerEngine } from "../../../player/core/player-engine.js";
 
 const supportedExtensions = new Set([".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"]);
 
@@ -49,17 +48,14 @@ function parseTrackFromFilename(filePath: string): Track {
 export class LocalMusicProvider implements MusicProvider {
   private readonly filePaths: string[];
   private tracksPromise: Promise<Track[]> | null = null;
-  private playback: PlaybackState = {
-    status: "idle",
-    track: null,
-    volumePercent: 50
-  };
+  private readonly playerEngine: PlayerEngine;
 
   constructor(
     private readonly musicDir: string,
     private readonly playbackController?: PlaybackController
   ) {
     this.filePaths = walkFiles(musicDir);
+    this.playerEngine = new PlayerEngine(() => this.getTracks(), playbackController);
   }
 
   hasTracks(): boolean {
@@ -107,86 +103,34 @@ export class LocalMusicProvider implements MusicProvider {
   }
 
   async play(track: Track): Promise<PlaybackState> {
-    if (this.playbackController) {
-      await this.playbackController.play(track);
-    }
-    this.playback = { ...this.playback, status: "playing", track };
-    return this.playback;
+    return this.playerEngine.play(track);
+  }
+
+  async restorePlayback(track: Track, status: PlaybackState["status"] = "paused"): Promise<PlaybackState> {
+    return this.playerEngine.restorePlayback(track, status);
   }
 
   async pause(): Promise<PlaybackState> {
-    this.ensureTrack();
-    if (this.playbackController) {
-      await this.playbackController.pause();
-    }
-    this.playback = { ...this.playback, status: "paused" };
-    return this.playback;
+    return this.playerEngine.pause();
   }
 
   async resume(): Promise<PlaybackState> {
-    this.ensureTrack();
-    if (this.playbackController) {
-      await this.playbackController.resume();
-    }
-    this.playback = { ...this.playback, status: "playing" };
-    return this.playback;
+    return this.playerEngine.resume();
   }
 
   async next(): Promise<PlaybackState> {
-    this.ensureTrack();
-    const tracks = await this.getTracks();
-    const currentIndex = tracks.findIndex((track) => track.id === this.playback.track?.id);
-    const nextTrack = tracks[(currentIndex + 1 + tracks.length) % tracks.length];
-    if (this.playbackController) {
-      await this.playbackController.play(nextTrack);
-    }
-    this.playback = { ...this.playback, status: "playing", track: nextTrack };
-    return this.playback;
+    return this.playerEngine.next();
   }
 
   async previous(): Promise<PlaybackState> {
-    this.ensureTrack();
-    const tracks = await this.getTracks();
-    const currentIndex = tracks.findIndex((track) => track.id === this.playback.track?.id);
-    const previousTrack = tracks[(currentIndex - 1 + tracks.length) % tracks.length];
-    if (this.playbackController) {
-      await this.playbackController.play(previousTrack);
-    }
-    this.playback = { ...this.playback, status: "playing", track: previousTrack };
-    return this.playback;
+    return this.playerEngine.previous();
   }
 
   async setVolume(percent: number): Promise<PlaybackState> {
-    if (this.playbackController) {
-      await this.playbackController.setVolume(percent);
-    }
-    this.playback = { ...this.playback, volumePercent: percent };
-    return this.playback;
+    return this.playerEngine.setVolume(percent);
   }
 
   async getNowPlaying(): Promise<PlaybackState> {
-    if (this.playbackController?.getPlaybackState) {
-      const controllerState = await this.playbackController.getPlaybackState();
-      this.playback = {
-        ...this.playback,
-        status: controllerState.status,
-        volumePercent: controllerState.volumePercent
-      };
-
-      if (controllerState.status === "idle") {
-        this.playback = {
-          ...this.playback,
-          track: null
-        };
-      }
-    }
-
-    return this.playback;
-  }
-
-  private ensureTrack(): void {
-    if (!this.playback.track) {
-      throw new AppError("There is no track currently playing.", ErrorCodes.MusicNotPlaying);
-    }
+    return this.playerEngine.getState();
   }
 }

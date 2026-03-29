@@ -30,6 +30,23 @@ describe("executeMusicControl", () => {
     expect((result.structuredContent as { action: string }).action).toBe("music.play");
   });
 
+  it("can launch the local music agent without host identity", async () => {
+    vi.doMock("node:child_process", () => ({
+      spawn: vi.fn(() => ({
+        unref: vi.fn()
+      }))
+    }));
+
+    const { executeMusicControl } = await import("../../../src/plugin/music-control.tool.js");
+    const result = await executeMusicControl({
+      action: "launch_agent"
+    });
+
+    expect(result.content[0]?.text).toContain("小乐正在后台启动");
+    expect((result.structuredContent as { action: string }).action).toBe("music.launch_agent");
+    vi.doUnmock("node:child_process");
+  });
+
   it("sets volume through the shared handler", async () => {
     const { executeMusicControl } = await import("../../../src/plugin/music-control.tool.js");
     const result = await executeMusicControl({

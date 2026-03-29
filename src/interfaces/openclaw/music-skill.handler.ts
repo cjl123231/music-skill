@@ -28,9 +28,11 @@ import { ResumeMusicUseCase } from "../../application/use-cases/resume-music.use
 import { SetVolumeUseCase } from "../../application/use-cases/set-volume.use-case.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import { ErrorCodes } from "../../shared/errors/error-codes.js";
+import type { MusicProvider } from "../../domain/services/music-provider.js";
 import type { SkillRequest, SkillResponse } from "./dto.js";
 
 export interface MusicSkillDependencies {
+  provider: MusicProvider;
   dialogueManager: DialogueManager;
   playMusic: PlayMusicUseCase;
   playFavoriteMusic: PlayFavoriteMusicUseCase;
@@ -50,6 +52,21 @@ export interface MusicSkillDependencies {
 
 export class MusicSkillHandler {
   constructor(private readonly deps: MusicSkillDependencies) {}
+
+  private async restoreProviderTrackIfNeeded(sessionId: string, userId: string): Promise<void> {
+    const playback = await this.deps.provider.getNowPlaying();
+    if (playback.track || !this.deps.provider.restorePlayback) {
+      return;
+    }
+
+    const context = await this.deps.dialogueManager.getOrCreate(sessionId, userId);
+    if (!context.currentTrack) {
+      return;
+    }
+
+    const status = context.playbackStatus ?? (playback.status === "idle" ? "paused" : playback.status);
+    await this.deps.provider.restorePlayback(context.currentTrack, status);
+  }
 
   async handle(request: SkillRequest): Promise<SkillResponse> {
     try {
@@ -71,6 +88,8 @@ export class MusicSkillHandler {
                 artistName: slots.artistName,
                 context
               });
+          result.context.playbackStatus = result.playback.status;
+          result.context.volumePercent = result.playback.volumePercent;
           await this.deps.dialogueManager.save(result.context);
           return {
             status: "success",
@@ -86,7 +105,13 @@ export class MusicSkillHandler {
         }
 
         case IntentTypes.Pause: {
+          await this.restoreProviderTrackIfNeeded(request.sessionId, request.userId);
           const playback = await this.deps.pauseMusic.execute();
+          const context = await this.deps.dialogueManager.getOrCreate(request.sessionId, request.userId);
+          context.currentTrack = playback.track;
+          context.playbackStatus = playback.status;
+          context.volumePercent = playback.volumePercent;
+          await this.deps.dialogueManager.save(context);
           return {
             status: "success",
             intent,
@@ -101,7 +126,13 @@ export class MusicSkillHandler {
         }
 
         case IntentTypes.Resume: {
+          await this.restoreProviderTrackIfNeeded(request.sessionId, request.userId);
           const playback = await this.deps.resumeMusic.execute();
+          const context = await this.deps.dialogueManager.getOrCreate(request.sessionId, request.userId);
+          context.currentTrack = playback.track;
+          context.playbackStatus = playback.status;
+          context.volumePercent = playback.volumePercent;
+          await this.deps.dialogueManager.save(context);
           return {
             status: "success",
             intent,
@@ -116,7 +147,13 @@ export class MusicSkillHandler {
         }
 
         case IntentTypes.Next: {
+          await this.restoreProviderTrackIfNeeded(request.sessionId, request.userId);
           const playback = await this.deps.nextTrack.execute();
+          const context = await this.deps.dialogueManager.getOrCreate(request.sessionId, request.userId);
+          context.currentTrack = playback.track;
+          context.playbackStatus = playback.status;
+          context.volumePercent = playback.volumePercent;
+          await this.deps.dialogueManager.save(context);
           return {
             status: "success",
             intent,
@@ -131,7 +168,13 @@ export class MusicSkillHandler {
         }
 
         case IntentTypes.Previous: {
+          await this.restoreProviderTrackIfNeeded(request.sessionId, request.userId);
           const playback = await this.deps.previousTrack.execute();
+          const context = await this.deps.dialogueManager.getOrCreate(request.sessionId, request.userId);
+          context.currentTrack = playback.track;
+          context.playbackStatus = playback.status;
+          context.volumePercent = playback.volumePercent;
+          await this.deps.dialogueManager.save(context);
           return {
             status: "success",
             intent,
@@ -168,6 +211,11 @@ export class MusicSkillHandler {
               ? Math.max(0, Math.min(100, currentPlayback.volumePercent + slots.volumeDelta))
               : undefined);
           const playback = await this.deps.setVolume.execute(targetVolume);
+          const context = await this.deps.dialogueManager.getOrCreate(request.sessionId, request.userId);
+          context.currentTrack = playback.track;
+          context.playbackStatus = playback.status;
+          context.volumePercent = targetVolume ?? playback.volumePercent;
+          await this.deps.dialogueManager.save(context);
           return {
             status: "success",
             intent,

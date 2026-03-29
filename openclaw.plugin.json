@@ -1,7 +1,7 @@
 {
   "id": "music-skill",
-  "name": "Music Skill",
-  "description": "Control music playback through an OpenClaw tool and bundled skill.",
+  "name": "XiaoLe Music Agent",
+  "description": "Launch and control the XiaoLe local music agent through OpenClaw.",
   "version": "0.2.0",
   "skills": ["./skills"],
   "configSchema": {

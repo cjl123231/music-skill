@@ -32,7 +32,7 @@ $env:PORT = '$port'
 $env:MUSIC_STORAGE_DRIVER = '$($env:MUSIC_STORAGE_DRIVER)'
 $env:MUSIC_DB_PATH = '$($env:MUSIC_DB_PATH)'
 Set-Location '$projectRoot'
-pnpm start:panel
+& '.\\scripts\\start-panel.ps1'
 "@
 
 $voiceCommand = @"
@@ -51,5 +51,5 @@ Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-Execution
 
 Write-Host "Panel startup requested."
 Write-Host "Voice listener startup requested."
-Write-Host "Open http://localhost:$port/panel"
+Write-Host "Open http://127.0.0.1:$port/panel"
 Write-Host "Agent TTS: $($env:MUSIC_AGENT_TTS_ENABLED) ($($env:MUSIC_AGENT_TTS_MODE))"

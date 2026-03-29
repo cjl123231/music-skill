@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -11,8 +11,8 @@
       <aside class="sidebar">
         <div class="brand">
           <p class="eyebrow">OpenClaw Companion</p>
-          <h1 id="agent-name">夜航电台</h1>
-          <p class="sidebar-copy" id="agent-description">一个可编辑人格的本地音乐 Agent。</p>
+          <h1 id="agent-name">Music Agent</h1>
+          <p class="sidebar-copy" id="agent-description">本地音乐助手。</p>
         </div>
 
         <div class="status-stack">
@@ -30,34 +30,40 @@
         </nav>
 
         <div class="sidebar-footer">
-          <p class="sidebar-note">Windows 可配合 `pnpm start:voice` 用耳机常驻语音。</p>
+          <p class="sidebar-note">Windows 用户也可以使用宿主级语音控制。</p>
         </div>
       </aside>
 
       <div class="main-shell">
-        <header class="command-bar card section-surface" id="section-command" data-section-surface="command">
+        <header class="command-bar card section-surface" data-section-surface="command">
           <div class="card-head">
             <div>
               <h3>快速命令</h3>
-              <p class="subtle">直接发送给小乐</p>
+              <p class="subtle">直接发送给小乐，按回车即可执行</p>
             </div>
             <div class="voice-inline">
-              <button type="button" id="voice-toggle" class="voice-button">开始语音</button>
-              <button type="button" id="voice-retry" class="subtle-button" hidden>重试</button>
+              <button type="button" id="voice-launch" class="voice-button">启动本地语音</button>
+              <button type="button" id="voice-stop" class="subtle-button">停止语音</button>
             </div>
           </div>
 
           <form id="command-form" class="command-form">
-            <input id="command-input" type="text" placeholder="例如：播放欢快 / 小乐，来点安静的" autocomplete="off" />
-            <button type="submit" class="primary">发送</button>
+            <input id="command-input" type="text" placeholder="例如：播放欢快 / 小乐，加一点音量" autocomplete="off" />
+            <button type="submit" id="command-submit" class="primary">发送</button>
           </form>
 
-          <div class="voice-status-row">
-            <span id="voice-status" class="muted">语音识别未启动</span>
-            <label class="voice-option">
-              <input type="checkbox" id="voice-continuous" />
-              <span>连续监听模式</span>
-            </label>
+          <div class="voice-status-row local-voice-row">
+            <span id="voice-status" class="muted">网页不再负责语音识别，语音控制已移到本地小乐。</span>
+          </div>
+
+          <div class="voice-log-card local-voice-card">
+            <div class="card-head compact-head">
+              <h3>本地语音</h3>
+              <span class="muted">推荐入口</span>
+            </div>
+            <p class="muted local-voice-copy">
+              点击“启动本地语音”后，语音监听会在本机后台运行。之后直接对麦克风说“小乐，播放普通朋友”即可。
+            </p>
           </div>
         </header>
 
@@ -67,40 +73,18 @@
 
             <div class="hero-copy">
               <p class="section-label">当前播放</p>
-              <h2 id="track-title">当前没有播放内容</h2>
-              <p class="track-meta" id="track-artist">等待音乐指令</p>
+              <h2 id="track-title">暂无歌曲</h2>
+              <p class="track-meta" id="track-artist">等待命令</p>
               <p class="track-sub" id="track-album">专辑信息待更新</p>
 
               <div class="hero-controls">
-                <button
-                  type="button"
-                  class="icon-button playback-action"
-                  data-command="previous"
-                  data-requires-track="true"
-                  title="上一首"
-                  aria-label="上一首"
-                >
+                <button type="button" class="icon-button playback-action" data-command="previous" data-requires-track="true" title="上一首" aria-label="上一首">
                   <span aria-hidden="true">&#9664;&#9664;</span>
                 </button>
-                <button
-                  type="button"
-                  class="primary icon-button playback-action"
-                  data-command="pause"
-                  data-requires-track="true"
-                  id="toggle-playback"
-                  title="暂停"
-                  aria-label="暂停"
-                >
+                <button type="button" class="primary icon-button playback-action" data-command="pause" data-requires-track="true" id="toggle-playback" title="暂停" aria-label="暂停">
                   <span aria-hidden="true">&#10074;&#10074;</span>
                 </button>
-                <button
-                  type="button"
-                  class="icon-button playback-action"
-                  data-command="next"
-                  data-requires-track="true"
-                  title="下一首"
-                  aria-label="下一首"
-                >
+                <button type="button" class="icon-button playback-action" data-command="next" data-requires-track="true" title="下一首" aria-label="下一首">
                   <span aria-hidden="true">&#9654;&#9654;</span>
                 </button>
                 <button type="button" data-command="favorite this" data-requires-track="true" id="favorite-button">收藏</button>
@@ -135,16 +119,16 @@
             <aside class="hero-lyrics card">
               <div class="card-head">
                 <h3>歌词</h3>
-                <span class="muted" id="lyrics-meta">未播放</span>
+                <span class="muted" id="lyrics-meta">未找到歌词</span>
               </div>
               <div class="lyrics-body hero-lyrics-body" id="lyrics-body">
-                <p class="lyric-line active">先播放一首歌，再查看歌词。</p>
+                <p class="lyric-line active">播放一首歌后，这里会显示歌词。</p>
               </div>
             </aside>
           </section>
 
           <div class="module-stack">
-            <section class="card section-card module-panel is-visible" id="section-library" data-section-panel="library">
+            <section class="card section-card module-panel is-visible" data-section-panel="library">
               <div class="card-head">
                 <h3>歌曲列表</h3>
                 <span class="muted" id="library-count">0 首</span>
@@ -152,7 +136,7 @@
               <div class="list-grid" id="library-list"></div>
             </section>
 
-            <section class="card section-card module-panel" id="section-favorites" data-section-panel="favorites">
+            <section class="card section-card module-panel" data-section-panel="favorites">
               <div class="card-head">
                 <h3>我的收藏</h3>
                 <span class="muted" id="favorite-count">0 首</span>
@@ -160,7 +144,7 @@
               <div class="list-grid" id="favorite-list"></div>
             </section>
 
-            <section class="card section-card module-panel" id="section-downloads" data-section-panel="downloads">
+            <section class="card section-card module-panel" data-section-panel="downloads">
               <div class="card-head">
                 <h3>下载任务</h3>
                 <span class="muted" id="download-count">0 项</span>
@@ -172,7 +156,7 @@
           <section class="card debug-card" id="debug-card" hidden>
             <div class="card-head">
               <h3>调试信息</h3>
-              <span class="muted">仅开发模式显示</span>
+              <span class="muted">仅开发环境显示</span>
             </div>
             <div class="debug-grid">
               <div><span class="muted">source</span><strong id="debug-source">-</strong></div>
@@ -189,8 +173,8 @@
               <span id="feedback-text">等待操作</span>
             </div>
             <div class="now-bar-mini">
-              <span id="mini-track-title">未播放</span>
-              <span class="muted" id="mini-track-artist">等待指令</span>
+              <span id="mini-track-title">未在播放</span>
+              <span class="muted" id="mini-track-artist">等待命令</span>
             </div>
           </div>
         </footer>

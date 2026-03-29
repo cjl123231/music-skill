@@ -15,6 +15,8 @@ export class DialogueManager {
       sessionId,
       userId,
       currentTrack: null,
+      playbackStatus: "idle",
+      volumePercent: 50,
       lastSearchResults: [],
       updatedAt: nowIso()
     };

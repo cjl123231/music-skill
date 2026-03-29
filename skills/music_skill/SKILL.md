@@ -10,6 +10,23 @@ metadata:
 
 # Music Skill
 
+## Chat Entry Rule
+
+Treat `小乐` as the user-facing music agent.
+
+If the user enters `/music` in the OpenClaw chat box, OpenClaw should treat it as:
+
+- launch the local `小乐` music agent
+- invoke `music_control` with `action="launch_agent"`
+- return the panel URL after startup if available
+
+Equivalent natural-language triggers that should prefer the same behavior:
+
+- `启动小乐`
+- `打开小乐`
+- `启动音乐助手`
+- `打开音乐面板`
+
 ## First Reminder
 
 This project is local-library-first and does not include bundled music.

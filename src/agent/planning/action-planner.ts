@@ -7,13 +7,13 @@ import type { AgentPlan } from "./agent-plan.js";
 
 function inferScene(text: string): string | undefined {
   const sceneMap: Array<[RegExp, string]> = [
-    [/(写代码|编程|coding|programming)/i, "coding"],
-    [/(工作|办公|专注|focus|work)/i, "focus"],
-    [/(学习|阅读|看书|study|reading)/i, "study"],
-    [/(运动|健身|跑步|锻炼|workout|exercise|gym|running)/i, "workout"],
-    [/(安静|轻一点|calm|quiet|chill)/i, "calm"],
-    [/(放松|休息|睡前|relax|unwind|bedtime)/i, "relax"],
-    [/(开车|通勤|driving|commute)/i, "commute"]
+    [/(?:\u5199\u4ee3\u7801|\u7f16\u7a0b|coding|programming)/i, "coding"],
+    [/(?:\u5de5\u4f5c|\u529e\u516c|\u4e13\u6ce8|focus|work)/i, "focus"],
+    [/(?:\u5b66\u4e60|\u9605\u8bfb|\u770b\u4e66|study|reading)/i, "study"],
+    [/(?:\u8fd0\u52a8|\u5065\u8eab|\u8dd1\u6b65|\u9505\u70bc|workout|exercise|gym|running)/i, "workout"],
+    [/(?:\u5b89\u9759|\u8f7b\u4e00\u70b9|calm|quiet|chill)/i, "calm"],
+    [/(?:\u653e\u677e|\u4f11\u606f|\u7761\u524d|relax|unwind|bedtime)/i, "relax"],
+    [/(?:\u5f00\u8f66|\u901a\u52e4|driving|commute)/i, "commute"]
   ];
 
   for (const [pattern, scene] of sceneMap) {
@@ -36,7 +36,7 @@ export class ActionPlanner {
     }
 
     const escapedWakeWord = wakeWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return trimmed.replace(new RegExp(`^${escapedWakeWord}[，。\\s]*`, "i"), "").trim();
+    return trimmed.replace(new RegExp(`^${escapedWakeWord}[，、,.\\s:：]*`, "i"), "").trim();
   }
 
   plan(request: AgentRequest, context: AgentContext): AgentPlan {
@@ -46,7 +46,7 @@ export class ActionPlanner {
       return {
         type: "reject",
         action: "agent.reject.empty_input",
-        replyText: "你还没有给我音乐指令。"
+        replyText: "\u4f60\u8fd8\u6ca1\u6709\u7ed9\u6211\u97f3\u4e50\u6307\u4ee4\u3002"
       };
     }
 
@@ -75,7 +75,7 @@ export class ActionPlanner {
           action: "agent.memory.preference.positive",
           sentiment: "positive",
           note: text,
-          replyText: `${this.profile?.persona.displayName ?? "我"}记住了，后面会优先参考这个偏好。`
+          replyText: `${this.profile?.persona.displayName ?? "\u6211"}\u8bb0\u4f4f\u4e86\uff0c\u540e\u9762\u4f1a\u4f18\u5148\u53c2\u8003\u8fd9\u4e2a\u504f\u597d\u3002`
         };
 
       case IntentTypes.RememberNegative:
@@ -84,7 +84,7 @@ export class ActionPlanner {
           action: "agent.memory.preference.negative",
           sentiment: "negative",
           note: text,
-          replyText: `${this.profile?.persona.displayName ?? "我"}记住了，后面会尽量避开这类内容。`
+          replyText: `${this.profile?.persona.displayName ?? "\u6211"}\u8bb0\u4f4f\u4e86\uff0c\u540e\u9762\u4f1a\u5c3d\u91cf\u907f\u5f00\u8fd9\u7c7b\u5185\u5bb9\u3002`
         };
 
       default:

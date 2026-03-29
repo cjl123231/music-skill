@@ -1,5 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import { resolve as pathResolve } from "node:path";
+import { existsSync } from "node:fs";
 import type { Track } from "../../domain/entities/track.js";
 import type { PlaybackController } from "../../domain/services/playback-controller.js";
 import { AppError } from "../../shared/errors/app-error.js";
@@ -8,9 +10,27 @@ import { ErrorCodes } from "../../shared/errors/error-codes.js";
 interface PlayerReply {
   ok: boolean;
   error?: string;
+  status?: "idle" | "playing" | "paused";
+  volumePercent?: number;
 }
 
 type HostFactory = () => ChildProcessWithoutNullStreams;
+
+function defaultHostFactory(): ChildProcessWithoutNullStreams {
+  const cwd = process.cwd();
+  const exePath = pathResolve(cwd, "scripts", "player-host.exe");
+  const backend = (process.env.MUSIC_PLAYER_BACKEND ?? "powershell").toLowerCase();
+
+  // Native host is opt-in until it proves stable on the target machine.
+  if (backend === "native" && existsSync(exePath)) {
+    return spawn(exePath, [], { cwd, stdio: ["pipe", "pipe", "pipe"] });
+  }
+
+  return spawn("powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/player-host.ps1"],
+    { cwd, stdio: ["pipe", "pipe", "pipe"] }
+  );
+}
 
 export class WindowsPlaybackController implements PlaybackController {
   private host: ChildProcessWithoutNullStreams | null = null;
@@ -18,11 +38,7 @@ export class WindowsPlaybackController implements PlaybackController {
   private stdoutBuffer = "";
   private inFlight = Promise.resolve();
 
-  constructor(private readonly createHost: HostFactory = () =>
-    spawn("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/player-host.ps1"], {
-      cwd: process.cwd(),
-      stdio: ["pipe", "pipe", "pipe"]
-    })) {}
+  constructor(private readonly createHost: HostFactory = defaultHostFactory) {}
 
   async play(track: Track): Promise<void> {
     if (!track.filePath) {
@@ -53,6 +69,14 @@ export class WindowsPlaybackController implements PlaybackController {
     await this.send({ action: "set_volume", volumePercent: percent });
   }
 
+  async getPlaybackState(): Promise<{ status: "idle" | "playing" | "paused"; volumePercent: number }> {
+    const reply = await this.sendWithReply({ action: "get_state" });
+    return {
+      status: reply.status ?? "idle",
+      volumePercent: reply.volumePercent ?? this.volumePercent
+    };
+  }
+
   private ensureHost(): ChildProcessWithoutNullStreams {
     if (this.host && !this.host.killed) {
       return this.host;
@@ -67,12 +91,18 @@ export class WindowsPlaybackController implements PlaybackController {
   }
 
   private send(command: Record<string, unknown>): Promise<void> {
-    const operation = this.inFlight.then(() => this.sendSerialized(command));
+    const operation = this.inFlight.then(() => this.sendSerialized(command).then(() => undefined));
     this.inFlight = operation.catch(() => undefined);
     return operation;
   }
 
-  private sendSerialized(command: Record<string, unknown>): Promise<void> {
+  private sendWithReply(command: Record<string, unknown>): Promise<PlayerReply> {
+    const operation = this.inFlight.then(() => this.sendSerialized(command));
+    this.inFlight = operation.then(() => undefined).catch(() => undefined);
+    return operation;
+  }
+
+  private sendSerialized(command: Record<string, unknown>): Promise<PlayerReply> {
     const host = this.ensureHost();
 
     return new Promise((resolve, reject) => {
@@ -97,7 +127,7 @@ export class WindowsPlaybackController implements PlaybackController {
           try {
             const parsed = JSON.parse(line) as PlayerReply;
             if (parsed.ok) {
-              resolve();
+              resolve(parsed);
               return;
             }
 

@@ -5,6 +5,7 @@ export interface MusicProvider {
   searchTracks(query: { keyword: string; artistName?: string }): Promise<Track[]>;
   listTracks(): Promise<Track[]>;
   play(track: Track): Promise<PlaybackState>;
+  restorePlayback?(track: Track, status?: PlaybackState["status"]): Promise<PlaybackState>;
   pause(): Promise<PlaybackState>;
   resume(): Promise<PlaybackState>;
   next(): Promise<PlaybackState>;

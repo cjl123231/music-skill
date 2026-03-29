@@ -2,8 +2,10 @@ import type { IntentType } from "../intents/intent-types.js";
 import { IntentTypes } from "../intents/intent-types.js";
 import type { SlotMap } from "./slot-types.js";
 
+const playPrefix =
+  /^(?:\u64ad\u653e|\u653e\u4e00\u9996|\u6765\u4e00\u9996|\u7ed9\u6211\u64ad\u653e\u4e00\u4e2a|\u653e\u4e2a|\u6765\u70b9\u97f3\u4e50|\u7ed9\u6211\u653e|\u542c\u4e00\u9996|\u6211\u60f3\u542c|\u6211\u60f3\u542c\u6b4c|\u7ed9\u6211\u6765\u4e00\u9996|\u70b9\u9996|\u6765\u9996|\u542c\u542c|play\b|listen to\b|start playing\b|put on\b|queue\b|play me\b|i want to hear\b|let me hear\b|start\b)\s*/i;
+
 function extractPlaySlots(text: string): SlotMap {
-  const playPrefix = /^(播放|放一首|来一首|给我播放一个|放个|给我放|听一首|我想听|点首|来首|听听|play\b)\s*/i;
   const rawKeyword = text.replace(playPrefix, "").trim();
 
   if (!rawKeyword) {
@@ -11,21 +13,21 @@ function extractPlaySlots(text: string): SlotMap {
   }
 
   const favoriteOnly =
-    /^我的收藏$/.test(rawKeyword) ||
-    /^收藏$/.test(rawKeyword) ||
-    /^我收藏的.+/.test(rawKeyword) ||
-    /^收藏的.+/.test(rawKeyword);
+    /^\u6211\u7684\u6536\u85cf$/.test(rawKeyword) ||
+    /^\u6536\u85cf$/.test(rawKeyword) ||
+    /^\u6211\u6536\u85cf\u7684.+/.test(rawKeyword) ||
+    /^\u6536\u85cf\u7684.+/.test(rawKeyword);
 
   let keyword = rawKeyword;
-  if (/^我的收藏$/.test(rawKeyword) || /^收藏$/.test(rawKeyword)) {
+  if (/^\u6211\u7684\u6536\u85cf$/.test(rawKeyword) || /^\u6536\u85cf$/.test(rawKeyword)) {
     keyword = "";
-  } else if (/^我收藏的/.test(rawKeyword)) {
-    keyword = rawKeyword.replace(/^我收藏的/, "").trim();
-  } else if (/^收藏的/.test(rawKeyword)) {
-    keyword = rawKeyword.replace(/^收藏的/, "").trim();
+  } else if (/^\u6211\u6536\u85cf\u7684/.test(rawKeyword)) {
+    keyword = rawKeyword.replace(/^\u6211\u6536\u85cf\u7684/, "").trim();
+  } else if (/^\u6536\u85cf\u7684/.test(rawKeyword)) {
+    keyword = rawKeyword.replace(/^\u6536\u85cf\u7684/, "").trim();
   }
 
-  const cnMatch = keyword.match(/^(.+?)的(.+)$/);
+  const cnMatch = keyword.match(/^(.+?)\u7684(.+)$/);
   const enMatch = keyword.match(/^(.+?)\s+-\s+(.+)$/);
 
   if (cnMatch) {
@@ -58,30 +60,41 @@ export function extractSlots(input: string, intent: IntentType): SlotMap {
     const compact = text.replace(/\s+/g, "");
     const numericMatch = text.match(/(\d+)\s*%?/);
     const numericValue = numericMatch ? Number(numericMatch[1]) : undefined;
+    const muteIntent = /^(?:\u9759\u97f3|mute)$/i.test(text);
+    const unmuteIntent = /^(?:\u53d6\u6d88\u9759\u97f3|\u6062\u590d\u58f0\u97f3|unmute)$/i.test(text);
     const relativeDecrease =
-      /(?:减|减少|调低|低一点|小一点|小声一点|轻一点|太大声了|太吵了|声音太大了|声音别这么大|别这么大声|turn down|volume down|lower|quieter)/i.test(
+      /(?:\u51cf|\u51cf\u5c11|\u8c03\u4f4e|\u4f4e\u4e00\u70b9|\u5c0f\u4e00\u70b9|\u5c0f\u58f0\u4e00\u70b9|\u8f7b\u4e00\u70b9|\u592a\u5927\u58f0\u4e86|\u592a\u5413\u4eba|\u58f0\u97f3\u592a\u5927\u4e86|\u58f0\u97f3\u522b\u8fd9\u4e48\u5927|\u522b\u8fd9\u4e48\u5927\u58f0|turn down|volume down|lower|quieter)/i.test(
         text
       );
     const relativeIncrease =
-      /(?:加|增加|调高|高一点|大一点|大声一点|响一点|turn up|volume up|raise|louder)/i.test(text);
+      /(?:\u52a0|\u589e\u52a0|\u8c03\u9ad8|\u9ad8\u4e00\u70b9|\u5927\u4e00\u70b9|\u5927\u58f0\u4e00\u70b9|\u54cd\u4e00\u70b9|turn up|volume up|raise|louder)/i.test(
+        text
+      );
     const absoluteIntent =
-      /(?:调到|设为|设置为|set volume to)/i.test(text) ||
-      /^音量\s*\d+\s*%?$/i.test(compact) ||
+      /(?:\u8c03\u5230|\u8bbe\u4e3a|\u8bbe\u7f6e\u4e3a|\u8c03\u6210|set volume to)/i.test(text) ||
+      /^\u97f3\u91cf\s*\d+\s*%?$/i.test(compact) ||
       /^volume\s*\d+\s*%?$/i.test(compact);
+
+    if (muteIntent) {
+      return { volumePercent: 0 };
+    }
+
+    if (unmuteIntent) {
+      return { volumePercent: 50 };
+    }
 
     if ((relativeDecrease || relativeIncrease) && !absoluteIntent) {
       const step = numericValue ?? 10;
       return { volumeDelta: relativeDecrease ? -step : step };
     }
 
-    const match = text.match(/(\d+)\s*%?/);
-    if (match) {
-      return { volumePercent: Number(match[1]) };
+    if (numericValue != null) {
+      return { volumePercent: numericValue };
     }
   }
 
   if (intent === IntentTypes.PlaylistAddTrack) {
-    const cnMatch = text.match(/加入(.+?)歌单/);
+    const cnMatch = text.match(/\u52a0\u5165(.+?)\u6b4c\u5355/);
     const enMatch = text.match(/add this song to (.+?) playlist/i);
 
     if (cnMatch) {

@@ -9,14 +9,14 @@ if (-not (Get-Command powershell.exe -ErrorAction SilentlyContinue)) {
 & (Join-Path $PSScriptRoot "install-openclaw.ps1")
 
 Write-Host ""
-Write-Host "Starting Music Skill assistant..."
+Write-Host "Starting XiaoLe desktop player..."
 
 $assistantCommand = @"
 Set-Location '$projectRoot'
-pnpm start:assistant
+pnpm desktop:start
 "@
 
 Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $assistantCommand | Out-Null
 
-Write-Host "Assistant startup requested."
-Write-Host "This launches the panel and the Windows host-level voice listener."
+Write-Host "Desktop player startup requested."
+Write-Host "This launches the XiaoLe desktop player window."

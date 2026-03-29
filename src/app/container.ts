@@ -30,6 +30,7 @@ export function createContainer() {
   return {
     provider,
     musicSkillHandler: new MusicSkillHandler({
+      provider,
       dialogueManager,
       playMusic: new PlayMusicUseCase(provider),
       playFavoriteMusic: new PlayFavoriteMusicUseCase(favoritesRepository, provider),

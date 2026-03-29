@@ -39,6 +39,8 @@ export class SqliteClient {
           session_id TEXT NOT NULL,
           user_id TEXT NOT NULL,
           current_track_json TEXT,
+          playback_status TEXT,
+          volume_percent INTEGER,
           last_search_results_json TEXT NOT NULL,
           updated_at TEXT NOT NULL,
           PRIMARY KEY (user_id, session_id)
@@ -94,6 +96,8 @@ export class SqliteClient {
         session_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         current_track_json TEXT,
+        playback_status TEXT,
+        volume_percent INTEGER,
         last_search_results_json TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (user_id, session_id)
@@ -124,6 +128,18 @@ export class SqliteClient {
 
     try {
       this.db.exec(`ALTER TABLE agent_preference_memory ADD COLUMN sentiment TEXT NOT NULL DEFAULT 'positive';`);
+    } catch {
+      // Column already exists on migrated databases.
+    }
+
+    try {
+      this.db.exec(`ALTER TABLE session_contexts ADD COLUMN playback_status TEXT;`);
+    } catch {
+      // Column already exists on migrated databases.
+    }
+
+    try {
+      this.db.exec(`ALTER TABLE session_contexts ADD COLUMN volume_percent INTEGER;`);
     } catch {
       // Column already exists on migrated databases.
     }
